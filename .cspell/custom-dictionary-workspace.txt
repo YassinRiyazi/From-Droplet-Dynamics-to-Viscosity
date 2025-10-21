@@ -1,5 +1,6 @@
 # Custom Dictionary Words
 cmap
 Kalhor
+Trulli
 vmax
 vmin
