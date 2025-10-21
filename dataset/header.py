@@ -10,6 +10,7 @@ import os
 import random
 import numpy as np
 import torch
+import pandas as pd
 
 from typing import Dict, List, TypeAlias, NamedTuple
 
@@ -33,7 +34,7 @@ image addresses, where each key identifies a batch or category.
 BatchAddress : TypeAlias = List[str| os.PathLike[str]]
 StringListDict: TypeAlias = Dict[str, BatchAddress]
 
-class DataSetShit(NamedTuple):
+class DataSetData(NamedTuple):
     """
     A mapping from a string identifier to detailed batch information.
 
@@ -45,8 +46,10 @@ class DataSetShit(NamedTuple):
     length: int
     addresses: BatchAddress
     viscosity: float
+    dropLocation: pd.DataFrame | None = None
+    SROF: pd.DataFrame | None = None
 
-DataSetShitInfo: TypeAlias = dict[str, DataSetShit]
+DataSetShitInfo: TypeAlias = dict[str, DataSetData]
 
 # DaughterFolderDataset
 DaughterSetInput_getitem_: TypeAlias =list[tuple[float, list[str | os.PathLike[str]]]]

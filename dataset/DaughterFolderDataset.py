@@ -1,67 +1,68 @@
 """
-    Author: Yassin Riyazi
-    Date: 04-08-2025
-    Description:
-        - General purpose self balancing dataset loader.
+Author:         Yassin Riyazi
+Date:           04.08.2025
+Description:    General purpose self balancing dataset loader.
+License:        GNU General Public License v3.0
 
-    TODO:
+TODO:
+    - Load csv file aside images
+    - Generate a random sequence of images from a folder. and test different dataloader settings.
+
+Changes:
+    - 2024-08-06:   Initial version.
         - [V] Balancing data with number of images in each repetition.
         - [V] Saving and loading dataset splits.
         - [V] Splitting test, validation and train sets.
-        - Generate a random sequence of images from a folder. and test different dataloader settings.
 
+Learned:
+    The type annotation
+        1. Callable[[str | os.PathLike], Union[np.ndarray, torch.Tensor]]:
 
-    Learned:
-        The type annotation
-            1. Callable[[str | os.PathLike], Union[np.ndarray, torch.Tensor]]:
+            Callable[[...], ...] → describes a function type.
+            Input: str | os.PathLike → the function takes one argument that is either a string (like "file.png") or an os.PathLike (e.g. pathlib.Path).
+            Output: Union[np.ndarray, torch.Tensor] → the function must return either a NumPy array or a PyTorch tensor.
 
-                Callable[[...], ...] → describes a function type.
-                Input: str | os.PathLike → the function takes one argument that is either a string (like "file.png") or an os.PathLike (e.g. pathlib.Path).
-                Output: Union[np.ndarray, torch.Tensor] → the function must return either a NumPy array or a PyTorch tensor.
+        2.dict
+            The type annotation dict[str, tuple[int, list[str | os.PathLike]]] in Python describes a dictionary with a specific structure. 
+            dict: The data structure is a dictionary, which maps keys to values.
+            str: The keys of the dictionary are strings.
+            tuple[int, list[str | os.PathLike]]: The values are tuples, where each tuple contains:
+                An int as the first element.
+                A list as the second element, where the list contains elements that are either str or os.PathLike.
+    PDB:
+        Similar to GDB, can be very useful for debugging. For example, you can set breakpoints inside Python syntax with if and if it reaches certain conditions, you can inspect variables and the call stack.
 
-            2.dict
-                The type annotation dict[str, tuple[int, list[str | os.PathLike]]] in Python describes a dictionary with a specific structure. 
-                dict: The data structure is a dictionary, which maps keys to values.
-                str: The keys of the dictionary are strings.
-                tuple[int, list[str | os.PathLike]]: The values are tuples, where each tuple contains:
-                    An int as the first element.
-                    A list as the second element, where the list contains elements that are either str or os.PathLike.
-        PDB:
-            Similar to GDB, can be very useful for debugging. For example, you can set breakpoints inside Python syntax with if and if it reaches certain conditions, you can inspect variables and the call stack.
+        It will automatically integrate points if you run the debugger if it hits breakpoints and in normal run mode it will opens the PDB console.
+    
+    GLOB:
+        Can finds pattern in *<string>* mimicking the ```str in ``` syntax of Python.
 
-            It will automatically integrate points if you run the debugger if it hits breakpoints and in normal run mode it will opens the PDB console.
-        
-        GLOB:
-            Can finds pattern in *<string>* mimicking the ```str in ``` syntax of Python.
-
-        Data structures:
-            Type safety and providing aliases helps a lot on code readability and maintainability.
-            Basically its a cheat sheet of what is data shape and types.
+    Data structures:
+        Type safety and providing aliases helps a lot on code readability and maintainability.
+        Basically its a cheat sheet of what is data shape and types.
 """
 
 import  os
 import  glob
 import  torch
 import  random
-import  pickle
 import  numpy                   as      np
 from    PIL                     import  Image
 from    torch.utils.data        import  Dataset
 from    torchvision             import  transforms # type: ignore
 from    typing                  import  Callable, Tuple, List
+import pandas as pd
+from numpy.typing import NDArray
 
-try:
-    from    .header                  import  BatchAddress, DataSetShit, DaughterSetInput_getitem_, setSeed, DaughterSet_getitem_ # type: ignore
-except ImportError:
-    from    header                   import  BatchAddress, DataSetShit, DaughterSetInput_getitem_, setSeed, DaughterSet_getitem_ # type: ignore
+if __name__ == "__main__" or __package__ is not None:
+    from    header                  import  BatchAddress, DataSetData, DaughterSetInput_getitem_, setSeed, DaughterSet_getitem_ # type: ignore
+    import sys
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+else:
+    from    .header                   import  BatchAddress, DataSetData, DaughterSetInput_getitem_, setSeed, DaughterSet_getitem_ # type: ignore
 
+import  utils
 from scipy.interpolate import interp1d, CubicSpline # type: ignore
-
-import sys
-ModuleDetection = "/home/d2u25/Desktop/Main/src/PyThon/ContactAngle/DropDetection"
-sys.path.append(ModuleDetection)
-from DropDetection_Sum import detectionV2
-
 
 def interpolate_motion(x: np.ndarray, y: np.ndarray, length: int):
     """
@@ -189,145 +190,6 @@ def interpolate_motion_extended(
 
     return x_new, y_new
 
-class DataHandler():
-    """
-        TODO:
-            - Add support for more pickles
-                - Normalize length of points for each drop
-            - Add support for more csv 4S-FROS
-    """
-    def __init__(self,
-                 extension: str,
-                 resize: Tuple[int, int]=(201,201)
-                ) -> None:
-        self.extension = extension
-        self.resize = resize
-
-        self.transform: Callable[[Image.Image], torch.Tensor] = transforms.Compose([
-            transforms.Grayscale(num_output_channels=1),
-            transforms.Resize(self.resize),
-            transforms.ToTensor(), #Converts a PIL Image or numpy.ndarray (H x W x C) in the range [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0] 
-            # transforms.Normalize((0.5,), (0.5,)),
-        ])
-        if self.extension == ".png":
-            self.forward: Callable[[list[str | os.PathLike[str]]], torch.Tensor] = self.DataHandlerPNG
-            self.loaddata = self.loadOrderedImages
-            
-        elif self.extension == ".pkl":
-            self.forward: Callable[[np.ndarray], torch.Tensor] = self.DataHandlerPickle
-            self.loaddata = self.loadOrderedPickles
-
-    def DataHandlerPNG(self, DataAddress:List[str | os.PathLike[str]]) -> torch.Tensor:
-        """
-        Load a PNG image as a grayscale torch.Tensor efficiently.
-
-        Args:
-            file_path (str | os.PathLike): Path to the PNG image.
-
-        Returns:
-            torch.Tensor: Grayscale image as a float32 tensor.
-
-        Caution:
-                Apply transformation here 
-                Images should be Grayscale
-        """
-        seq: list[torch.Tensor] = []
-        for file_path in DataAddress:
-            data = Image.open(file_path)
-            data = self.transform(data)
-            seq.append(data)
-        # Wrap NumPy array into Torch tensor without copying
-        return torch.stack(seq)
-
-    @staticmethod
-    def loadOrderedImages(foldersDic:dict[str, DataSetShit],
-                        seqLength: int = 2,
-                        _Stride: int = 5
-                        ) -> list[tuple[float, list[str | os.PathLike[str]]]]:
-        """
-        Load ordered images from the provided dictionary of folders.
-        Caution:
-            Dictionary is passed by reference.
-        Args:
-            foldersDic (dict[str, tuple[int, list[str | os.PathLike]]]): A dictionary mapping folder names to a tuple containing the number of images and a list of image paths.
-            seqLength (int): The length of the sequence of images to load.
-            _Stride (int): The stride to use when loading images.
-        Returns:
-            list[list[str | os.PathLike]]: A list of lists, where each inner list contains the paths of the ordered images.
-        """
-        DataAddress:list[tuple[float, list[str | os.PathLike[str]]]] = []
-        index = 0
-        _go = True
-        while _go:
-            _failedCases = 0
-            for folder, (count, files, viscosity) in foldersDic.items():
-                del folder
-                start = index * _Stride
-                end = start + seqLength
-                if end > (count):
-                    _failedCases += 1
-                else:
-                    DataAddress.append((viscosity, files[start:end]))
-            index += 1
-            if _failedCases >= foldersDic.keys().__len__():
-                _go = False
-        return DataAddress
-    
-    def DataHandlerPickle(self, data: np.ndarray) -> torch.Tensor:
-        return torch.tensor(data, dtype=torch.float32)
-    
-    @staticmethod
-    def loadOrderedPickles(foldersDic:dict[str, DataSetShit],
-                           pLength = 300,
-                            seqLength: int = 2,
-                            _Stride: int = 5
-                            ) -> DaughterSetInput_getitem_:
-        """
-        Load ordered images from the provided dictionary of folders.
-        Caution:
-            Dictionary is passed by reference.
-        Args:
-            foldersDic (dict[str, tuple[int, list[str | os.PathLike]]]): A dictionary mapping folder names to a tuple containing the number of images and a list of image paths.
-            seqLength (int): The length of the sequence of images to load.
-            _Stride (int): The stride to use when loading images.
-        Returns:
-            list[list[str | os.PathLike]]: A list of lists, where each inner list contains the paths of the ordered images.
-        """
-        for folder, (count, files, viscosity) in foldersDic.items():
-            with open(files[0], 'rb') as f:
-                
-                sample = pickle.load(f)
-            data = np.zeros((len(sample), pLength, 3))
-
-            for adress, array in sample.items():
-                dataIndex = int(adress.split(os.sep)[-1].split('.')[0].split('_')[-1])-1
-                time_index = float(dataIndex)/4000
-                x,y = interpolate_motion_extended(array[:,0], array[:,1], pLength)
-
-                data[dataIndex, :, 0] = x
-                data[dataIndex, :, 1] = y
-                data[dataIndex, :, 2] = time_index  # Use the calculated time_index
-
-            foldersDic[folder] = DataSetShit(len(sample), data, viscosity) # type
-
-        DataAddress:DaughterSetInput_getitem_ = []
-        index = 0
-        _go = True
-        while _go:
-            _failedCases = 0
-            for folder, (count, datas, viscosity) in foldersDic.items():
-                del folder
-                start = index * _Stride
-                end = start + seqLength
-                if end > (count):
-                    _failedCases += 1
-                else:
-                    DataAddress.append((viscosity, datas[start:end]))
-            index += 1
-            if _failedCases >= foldersDic.keys().__len__():
-                _go = False
-        return DataAddress
-
 class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
     def dataNormalizer(self,
                        MaxLength:int) -> None:
@@ -347,7 +209,6 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
                  dirs: BatchAddress,
                  seq_len: int,
                  stride: int,
-                 extension: str,
                  resize: Tuple[int, int]=(201,201),
                  ):
         """
@@ -372,29 +233,65 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
 
         self.seq_len        = seq_len
         self.stride         = stride
-        self.extension      = extension
-        self.DataHandler    = DataHandler(extension=self.extension, resize=resize)
+        # self.DataHandler    = DataHandler(extension=self.extension, resize=resize)
 
-        foldersDic          = self.loadAddresses(dirs,self.extension)
+        foldersDic          = self.loadAddresses(dirs,utils.config['image_extension'])
 
-        
-        self.DataAddress    = self.DataHandler.loaddata(foldersDic,
+        self.DataAddress    = self.loadOrderedImages(foldersDic,
                                                         seqLength=seq_len,
                                                         _Stride=stride)
-
+        
+        self.transform: Callable[[Image.Image], torch.Tensor] = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
+            transforms.Resize(resize),
+            transforms.ToTensor(), #Converts a PIL Image or numpy.ndarray (H x W x C) in the range [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0] 
+            # transforms.Normalize((0.5,), (0.5,)),
+        ])
 
     def __len__(self):
         return len(self.DataAddress)
 
     def __getitem__(self, idx:int) -> DaughterSet_getitem_:
-        seq_tensor = self.DataHandler.forward(self.DataAddress[idx][1])
+        seq: list[torch.Tensor] = []
+        for file_path in self.DataAddress[idx][1]:
+            data = Image.open(file_path)
+            data = self.transform(data)
+            seq.append(data)
+        # Wrap NumPy array into Torch tensor without copying
+        seq_tensor = torch.stack(seq)
 
-        return seq_tensor, torch.tensor(self.DataAddress[idx][0], dtype=torch.float32)
+        return seq_tensor, torch.tensor(self.DataAddress[idx][0], dtype=torch.float32), torch.tensor(self.DataAddress[idx][2], dtype=torch.int16), torch.tensor(self.DataAddress[idx][3], dtype=torch.float32), torch.tensor(self.DataAddress[idx][4], dtype=torch.int16)
     
-    @staticmethod
-    def loadAddresses(data_address:BatchAddress,
+    def checkingFilesExist(self, 
+                           files:List[str],
+                           dropLocation: pd.DataFrame,
+                           SROF: pd.DataFrame
+                           ) -> bool:
+        """
+        Check if all files in the provided list of addresses exist.
+
+        Args:
+            files (List[str | os.PathLike]): A list of file paths to check.
+
+        Returns:
+            bool: True if all files exist, False otherwise.
+        """
+        filename_set = {os.path.basename(file) for file in files}
+        detection_set = set(dropLocation['image'])
+        SROF_set = set(SROF['file number'])
+
+        if len(filename_set ^ detection_set)!=0:
+            raise FileNotFoundError("Some files in dropLocation CSV do not match the image files.")
+        
+        if len(filename_set ^ SROF_set)!=0:
+            raise FileNotFoundError("Some files in 4S-SROF CSV do not match the image files.")
+        
+        return True
+
+    def loadAddresses(self,
+                      data_address:BatchAddress,
                             extension: str,
-                        ) -> dict[str, DataSetShit]:
+                        ) -> dict[str, DataSetData]:
         """
         load image addresses from a directory.
         Args:
@@ -405,41 +302,61 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         """
         assert extension.startswith('.'), "Extension should start with a dot (e.g., '.png')"
 
-        foldersDic: dict[str, DataSetShit] = {}
+        foldersDic: dict[str, DataSetData] = {}
         for folder in data_address:
             viscosity = float(os.path.basename(folder).split("_")[-1])
-            files =  sorted(glob.glob(os.path.join(folder, f"*{extension}")))
+            files =  sorted(glob.glob(os.path.join(folder, utils.config['full_size_image_folder'], f"*{extension}")))
 
-            foldersDic[folder] = DataSetShit(len(files), files, viscosity) # type: ignore
+            dropLocation = pd.read_csv(os.path.join(folder, utils.config['cropped_image_folder'], "detections.csv")) # type: ignore
+            SROF = pd.read_csv(os.path.join(folder, utils.config['SROF'])) # type: ignore
+
+            _ = self.checkingFilesExist(files, dropLocation, SROF)
+
+            foldersDic[folder] = DataSetData(len(files), files, viscosity, dropLocation, SROF) # type: ignore
         return foldersDic
+    
+    @staticmethod
+    def loadOrderedImages(foldersDic:dict[str, DataSetData],
+                        seqLength: int = 2,
+                        _Stride: int = 5
+                        ) -> list[tuple[float, list[str | os.PathLike[str]], NDArray[np.int8],  NDArray[np.float16], int]]:
+        """
+        Load ordered images from the provided dictionary of folders.
+        Caution:
+            Dictionary is passed by reference.
+        Args:
+            foldersDic (dict[str, tuple[int, list[str | os.PathLike]]]): A dictionary mapping folder names to a tuple containing the number of images and a list of image paths.
+            seqLength (int): The length of the sequence of images to load.
+            _Stride (int): The stride to use when loading images.
+        Returns:
+            list[list[str | os.PathLike]]: A list of lists, where each inner list contains the paths of the ordered images.
+        """
+        DataAddress:list[tuple[float, list[str | os.PathLike[str]], NDArray[np.int8],  NDArray[np.float16], int]] = []
+        index = 0
+        _go = True
+        while _go:
+            _failedCases = 0
+            for folder, (count, files, viscosity, dropLocation, SROF) in foldersDic.items():
+                # del folder
+                tilt = 360 - int(folder.split(os.sep)[4])
+
+                start = index * _Stride
+                end = start + seqLength
+                if end > (count):
+                    _failedCases += 1
+                else:
+                    DataAddress.append((viscosity, files[start:end],
+                                        dropLocation.iloc[start:end,1:].to_numpy(dtype=np.int16),   # type: ignore
+                                        SROF.iloc[start:end,1:].to_numpy(dtype=np.float16),         # type: ignore
+                                        tilt))      
+            index += 1
+            if _failedCases >= foldersDic.keys().__len__():
+                _go = False
+        return DataAddress
 
 if __name__ == "__main__":
-    vv = DaughterFolderDataset(dirs=['/media/d2u25/Dont/frames_Process_30/285/S2-SNr2.5_D/T317_02_20.670000000000'],
+    vv = DaughterFolderDataset(dirs=['/media/Dont/Teflon-AVP/280/S2-SNr2.1_D/T528_01_4.460000000000'],
                          seq_len=1,
-                         stride=15,
-                         extension=".png")
-    # # vv.dataNormalizer(500)
-    # print(vv[10][0].shape, vv.__len__())
-    # # import glob
-    # # print()
-    # # loadOrderedPickles()
-    # import matplotlib.pyplot as plt
-    # plt.figure(figsize=(16,9))
-    # colors = plt.cm.RdBu(np.linspace(0, 1, len(vv[10][0][0])))  # Array of RGBA colors from RdBu colormap
-
-    # plt.scatter(vv[10][0][0][:,0], vv[10][0][0][:,1], c=colors, s=6, alpha=0.8)
-    # plt.axis('equal')
-    # plt.ylim(0, 130)
-    # plt.show()
-    vv[0]
-    print("Done")
-
+                         stride=1,)
     
-    np_img = vv[0][0].mul(255).numpy()
-    np_img = np_img.squeeze(0).astype(np.int32)   # shape: (H, W)
-
-
-    import matplotlib.pyplot as plt
-    plt.imshow(np_img, cmap='gray')
-    plt.axis('off')  # Turn off axis numbers and ticks
-    plt.show()
+    print(vv[10])

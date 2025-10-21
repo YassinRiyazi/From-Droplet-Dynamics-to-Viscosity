@@ -1,1 +1,12 @@
-encoding : False
+reflection: 'off'
+encoding : ['False', 'Position', 'Velocity',]
+
+image_extension: '.png'
+data_stride: 15
+data_seq_len: 1
+data_resize: [201, 201]
+
+full_size_image_folder: 'frames_rotated'
+cropped_image_folder: 'databases'
+
+SROF: 'result_2Pass_corrected.csv'
