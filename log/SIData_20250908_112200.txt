@@ -1,0 +1,33 @@
+Parameters: stride=4, sequence_length=10, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Minimum length across fluids: 5410
+Minimum length across fluids: 2752
+Processing case: default with sequence length: 1
+Mean SI: 0.6796654829215177
+Minimum length across fluids: 5321
+Minimum length across fluids: 2709
+Processing case: default with sequence length: 10
+Mean SI: 0.681539536877112
+Minimum length across fluids: 5410
+Minimum length across fluids: 2752
+Processing case: Position with sequence length: 1
+Mean SI: 0.7343262617206161
+Minimum length across fluids: 5321
+Minimum length across fluids: 2709
+Processing case: Position with sequence length: 10
+Mean SI: 0.7354397846893831
+Minimum length across fluids: 5410
+Minimum length across fluids: 2752
+Processing case: Velocity with sequence length: 1
+Mean SI: 0.8279723741791465
+Minimum length across fluids: 5321
+Minimum length across fluids: 2709
+Processing case: Velocity with sequence length: 10
+Mean SI: 0.8342571933161128
+Minimum length across fluids: 5410
+Minimum length across fluids: 2752
+Processing case: NoRef with sequence length: 1
+Mean SI: 0.6785778968365161
+Minimum length across fluids: 5321
+Minimum length across fluids: 2709
+Processing case: NoRef with sequence length: 10
+Mean SI: 0.6816707784479314
