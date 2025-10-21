@@ -102,11 +102,11 @@ def LightSourceReflectionRemover(imageAddress:str,
 
 if __name__ == "__main__":
     import os
-    
+    os.chdir('../../')
     ImageAddress = 'Samples/frame_000514.png'
 
     DropBoundaryExtractor(ImageAddress,
-                         'src/PyThon/Viscosity/lightSource/doc/DropBoundryExtractor.png')
+                         'dataset/light_source/doc/DropBoundaryExtractor.png')
     
     LightSourceReflectionRemover(ImageAddress,
-                                 'src/PyThon/Viscosity/lightSource/doc/LightSourceReflectionRemover.png')
+                                 'dataset/light_source/doc/LightSourceReflectionRemover.png')

@@ -11,9 +11,9 @@ from    PIL                 import  Image
 from numpy.typing import NDArray
 from typing import TypeAlias, Union
 
-PEmbdType: TypeAlias = Union[NDArray[np.float32], cv2.Mat]
+PEmbedType: TypeAlias = Union[NDArray[np.float32], cv2.Mat]
 
-def sinusoidal_positional_encoding(max_position: int, d_model: int) -> PEmbdType:
+def sinusoidal_positional_encoding(max_position: int, d_model: int) -> PEmbedType:
     """
     Task:       
         This is a part of viscosity estimation project.
@@ -100,7 +100,7 @@ def sinusoidal_positional_encoding(max_position: int, d_model: int) -> PEmbdType
 
 def cropped_position_encoding(  x1: int, x2: int,
                                 max_position: int = 1024,  # Maximum sequence length
-                                d_model: int = 512) -> PEmbdType:      # Embedding dimension:
+                                d_model: int = 512) -> PEmbedType:      # Embedding dimension:
     """
     Assumptions:
         Images are unified in size ex. (130, 1248)
@@ -130,7 +130,7 @@ def cropped_position_encoding(  x1: int, x2: int,
 
 def main_Visualizer(max_position: int = 1245,  # Maximum sequence length
                     d_model: int = 530,        # Embedding dimension
-                    _plot: bool = False) -> PEmbdType:
+                    _plot: bool = False) -> PEmbedType:
     """
     Main function to generate sinusoidal positional encoding.
     """
@@ -156,7 +156,7 @@ def PE_Generator(numberOfImages:int,
                   velocity_encoding:bool = False,
                   positional_encoding:bool = True,
                   default_image_size:tuple[int,int] = (1245, 130),
-                  Resize:bool = True)-> PEmbdType:
+                  Resize:bool = True)-> PEmbedType:
     """
     TODO:
         Check position encoding yields a better results or velocity encoding.
