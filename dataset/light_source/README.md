@@ -1,4 +1,7 @@
 # Light Source Reflection Removal
+![`Sample`](../../Samples/frame_000514.png)  
+Original Image
+
 
 Small utility module to detect and remove light-source reflections from grayscale images.
 
@@ -11,7 +14,7 @@ Core functions
 
 - [`dataset.lightSource.LightSourceReflectionRemoving.LightSourceReflectionRemover`](LightSourceReflectionRemoving.py)  
   Produces a binary mask that removes the light-source reflection area; configurable via `threshold_activation`.
-  ![`Sample`](./doc/DropBoundryExtractor.png)  
+  ![`Sample`](./doc/LightSourceReflectionRemover.png)  
   
 
 Quick usage
