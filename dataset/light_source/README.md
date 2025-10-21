@@ -7,11 +7,11 @@ Main file: [dataset/lightSource/LightSourceReflectionRemoving.py](LightSourceRef
 Core functions
 - [`dataset.lightSource.LightSourceReflectionRemoving.DropBoundaryExtractor`](LightSourceReflectionRemoving.py)  
   Extracts the main drop/reflection boundary from a gray-scale image and writes a masked image to disk.
-  [`Sample`](./doc/DropBoundryExtractor.png)  
+  ![`Sample`](./doc/DropBoundryExtractor.png)  
 
 - [`dataset.lightSource.LightSourceReflectionRemoving.LightSourceReflectionRemover`](LightSourceReflectionRemoving.py)  
   Produces a binary mask that removes the light-source reflection area; configurable via `threshold_activation`.
-  [`Sample`](./doc/DropBoundryExtractor.png)  
+  ![`Sample`](./doc/DropBoundryExtractor.png)  
   
 
 Quick usage
@@ -26,8 +26,8 @@ API notes
 - `process_image` is designed for use with multiprocessing pools; `process_images_in_directory` currently prepares directories and runs removals sequentially but the `__main__` includes an example of parallel processing using `multiprocessing.Pool`.
 
 Dependencies
-- Python 3.8+
-- OpenCV (cv2), numpy, tqdm, matplotlib
+- Python 3.11+
+- OpenCV (cv2), numpy
 
 Related files
 - LICENSE: [LICENSE](LICENSE)
