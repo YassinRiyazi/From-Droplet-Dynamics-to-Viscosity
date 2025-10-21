@@ -2,27 +2,23 @@
 
 Small utility module to detect and remove light-source reflections from grayscale images.
 
-Main file: [dataset/lightSource/LightSourceReflectionRemoving.py](dataset/lightSource/LightSourceReflectionRemoving.py)
+Main file: [dataset/lightSource/LightSourceReflectionRemoving.py](LightSourceReflectionRemoving.py)
 
 Core functions
-- [`dataset.lightSource.LightSourceReflectionRemoving.DropBoundaryExtractor`](dataset/lightSource/LightSourceReflectionRemoving.py)  
+- [`dataset.lightSource.LightSourceReflectionRemoving.DropBoundaryExtractor`](LightSourceReflectionRemoving.py)  
   Extracts the main drop/reflection boundary from a gray-scale image and writes a masked image to disk.
+  [`Sample`](./doc/DropBoundryExtractor.png)  
 
-- [`dataset.lightSource.LightSourceReflectionRemoving.LightSourceReflectionRemover`](dataset/lightSource/LightSourceReflectionRemoving.py)  
+- [`dataset.lightSource.LightSourceReflectionRemoving.LightSourceReflectionRemover`](LightSourceReflectionRemoving.py)  
   Produces a binary mask that removes the light-source reflection area; configurable via `threshold_activation`.
+  [`Sample`](./doc/DropBoundryExtractor.png)  
   
-- [`dataset.lightSource.LightSourceReflectionRemoving.process_image`](dataset/lightSource/LightSourceReflectionRemoving.py)  
-  Helper wrapper for parallel worker tasks (image, output_dir) → processes one image.
-
-- [`dataset.lightSource.LightSourceReflectionRemoving.process_images_in_directory`](dataset/lightSource/LightSourceReflectionRemoving.py)  
-  High-level helper that builds input→output directory map for dataset directories and runs the remover sequentially.
 
 Quick usage
-- Run the module directly to process dataset folders (parallel mode is implemented but commented/adjustable in the `__main__`):  
+- Run the module directly to produce two samples in `__main__`:  
   ```sh
   python dataset/lightSource/LightSourceReflectionRemoving.py
   ```
-  The script looks for folders like `/media/d2u25/Dont/frames_Process_<FPS>/...` and creates corresponding `frames_Process_<FPS>_LightSource` output folders.
 
 API notes
 - Input images are read with OpenCV in gray scale. Functions raise on unreadable files.
@@ -35,8 +31,8 @@ Dependencies
 
 Related files
 - LICENSE: [LICENSE](LICENSE)
-- Source implementation: [dataset/lightSource/LightSourceReflectionRemoving.py](dataset/lightSource/LightSourceReflectionRemoving.py)
-- Dataset usage
+- Source implementation: [dataset/lightSource/LightSourceReflectionRemoving.py](LightSourceReflectionRemoving.py)
+- Dataset: [dataset/DaughterFolderDataset.py](../DaughterFolderDataset.py)
 
 Notes and tips
 - Test on a few images before processing the entire dataset; inspect masks visually.

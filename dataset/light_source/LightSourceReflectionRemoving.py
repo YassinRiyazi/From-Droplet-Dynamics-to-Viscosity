@@ -4,21 +4,13 @@ Date:           20.08.2025
 Description:    Remove light source reflection from an image.
 License:        General Public License v3.0
 """
-import os
 import cv2
-import glob
 import numpy as np
-import matplotlib.pyplot as plt
-import multiprocessing as mp
-from typing import List, Tuple, Union
-from tqdm import tqdm
-
 
 def DropBoundaryExtractor(imageAddress:str,
                          outputAddress:str,) -> None:
     """
     Returning the boundary of drop.
-    <img src="https://raw.githubusercontent.com/YassinRiyazi/Main/refs/heads/main/src/PyThon/Viscosity/lightSource/doc/DropBoundaryExtractor.png" alt="Italian Trulli">
     
     Args:
         imageAddress (str): The file path to the input image.
@@ -66,7 +58,6 @@ def LightSourceReflectionRemover(imageAddress:str,
                                  threshold_activation:int = 100) -> None:
     """
     Remove light source reflection from an image.
-    <img src="https://raw.githubusercontent.com/YassinRiyazi/Main/refs/heads/main/src/PyThon/Viscosity/lightSource/doc/LightSourceReflectionRemover.png" alt="Italian Trulli">
     
     Args:
         imageAddress (str): The file path to the input image.
@@ -109,18 +100,11 @@ def LightSourceReflectionRemover(imageAddress:str,
     # Save or display the result
     cv2.imwrite(outputAddress, inside)
 
-def process_image(args:tuple) -> None:
-    """Helper for parallel processing."""
-    image, output_dir = args
-
-    output_dir = os.path.join(output_dir, os.path.basename(image))
-    if not os.path.isfile(output_dir):
-        LightSourceReflectionRemover(image, output_dir)
-    # return image  # for logging if needed
-
-
 if __name__ == "__main__":
-    ImageAddress = 'src/PyThon/ContactAngle/DropSamples/frame_000514.png'
+    import os
+    
+    ImageAddress = 'Samples/frame_000514.png'
+
     DropBoundaryExtractor(ImageAddress,
                          'src/PyThon/Viscosity/lightSource/doc/DropBoundryExtractor.png')
     
