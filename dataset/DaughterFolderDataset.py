@@ -43,6 +43,7 @@ Learned:
 """
 
 import  os
+import  cv2                    
 import  glob
 import  torch
 import  random
@@ -54,17 +55,22 @@ from    typing                  import  Callable, Tuple, List
 import pandas as pd
 from numpy.typing import NDArray
 
-if __name__ == "__main__" or __package__ is not None:
-    from    header                  import  BatchAddress, DataSetData, DaughterSetInput_getitem_, setSeed, DaughterSet_getitem_ # type: ignore
+if __name__ == "__main__":
+    from positional_encoding.PositionalImageGenerator import PE_Generator
+    from light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
+    from    header                  import  BatchAddress, DataSetData, DaughterSet_internal_, setSeed, DaughterSet_getitem_ # type: ignore
     import sys
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 else:
-    from    .header                   import  BatchAddress, DataSetData, DaughterSetInput_getitem_, setSeed, DaughterSet_getitem_ # type: ignore
+    from .positional_encoding.PositionalImageGenerator import PE_Generator
+    from .light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
+    from    .header                   import  BatchAddress, DataSetData, DaughterSet_internal_, setSeed, DaughterSet_getitem_ # type: ignore
 
 import  utils
 from scipy.interpolate import interp1d, CubicSpline # type: ignore
 
-def interpolate_motion(x: np.ndarray, y: np.ndarray, length: int):
+def interpolate_motion(x: NDArray[np.int16], y: NDArray[np.int16], length: int
+                       ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
     Interpolate (x, y) points representing a continuous motion into
     a smooth trajectory with consistent length.
@@ -101,92 +107,8 @@ def interpolate_motion(x: np.ndarray, y: np.ndarray, length: int):
 
     # Resample at uniform parameter values
     t_new = np.linspace(0, 1, length)
-    x_new = fx(t_new)
-    y_new = fy(t_new)
-
-    return x_new, y_new
-
-def interpolate_motion_extended(
-    x: np.ndarray,
-    y: np.ndarray,
-    length: int,
-    kind: str = "linear",
-    arc_length: bool = True
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Interpolate (x, y) points representing a continuous motion into a smooth trajectory
-    with a specified number of points.
-
-    Args:
-        x (np.ndarray): 1D array of x-coordinates.
-        y (np.ndarray): 1D array of y-coordinates (must match x in length).
-        length (int): Desired number of resampled points (must be positive).
-        kind (str, optional): Interpolation method ('linear' or 'cubic'). Defaults to 'linear'.
-        arc_length (bool, optional): If True, parameterize by arc length; otherwise, use uniform
-                                    parameterization. Defaults to True.
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray]: Interpolated x and y arrays of length `length`.
-
-    Raises:
-        ValueError: If inputs are invalid (e.g., mismatched lengths, insufficient points, invalid kind).
-        TypeError: If x or y are not NumPy arrays or length is not an integer.
-
-    Example:
-        >>> import numpy as np
-        >>> x = np.array([0, 1, 1, 2, 3, 5])
-        >>> y = np.array([0, 1, 2, 2, 3, 10])
-        >>> x_new, y_new = interpolate_motion(x, y, 50, kind="cubic")
-    """
-    # Input validation
-    if not isinstance(x, np.ndarray) or not isinstance(y, np.ndarray):
-        raise TypeError("x and y must be NumPy arrays")
-    if not isinstance(length, int):
-        raise TypeError("length must be an integer")
-    if x.shape != y.shape or x.ndim != 1:
-        raise ValueError("x and y must be 1D arrays of the same length")
-    if length < 1:
-        raise ValueError("length must be a positive integer")
-    if kind not in ["linear", "cubic"]:
-        raise ValueError("kind must be 'linear' or 'cubic'")
-
-    # Remove duplicates in (x, y) pairs
-    coords = np.column_stack((x, y))
-    _, unique_idx = np.unique(coords, axis=0, return_index=True)
-    coords = coords[np.sort(unique_idx)]
-    x_unique, y_unique = coords[:, 0], coords[:, 1]
-
-    # Check for sufficient points
-    n_points = len(x_unique)
-    if n_points < 2:
-        raise ValueError("At least two unique points are required for interpolation")
-    if kind == "cubic" and n_points < 3:
-        raise ValueError("Cubic interpolation requires at least three unique points")
-
-    # Parameterization
-    if arc_length:
-        # Arc-length parameterization
-        distances = np.sqrt(np.diff(x_unique) ** 2 + np.diff(y_unique) ** 2)
-        if np.all(distances == 0):
-            raise ValueError("All points are identical; cannot interpolate")
-        t = np.concatenate(([0], np.cumsum(distances)))
-        t = t / t[-1]  # Normalize to [0, 1]
-    else:
-        # Uniform parameterization
-        t = np.linspace(0, 1, n_points)
-
-    # Interpolation
-    t_new = np.linspace(0, 1, length)
-    if kind == "linear":
-        fx = interp1d(t, x_unique, kind="linear", bounds_error=False, fill_value="extrapolate")
-        fy = interp1d(t, y_unique, kind="linear", bounds_error=False, fill_value="extrapolate")
-    else:  # cubic
-        fx = CubicSpline(t, x_unique, bc_type="natural")
-        fy = CubicSpline(t, y_unique, bc_type="natural")
-
-    # Resample
-    x_new = fx(t_new)
-    y_new = fy(t_new)
+    x_new: NDArray[np.float64] = fx(t_new).astype(np.float64)
+    y_new: NDArray[np.float64] = fy(t_new).astype(np.float64)
 
     return x_new, y_new
 
@@ -204,12 +126,11 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         random.seed(42)  # deterministic shuffle
         random.shuffle(self.DataAddress)
         self.DataAddress = self.DataAddress[:MaxLength]
-
+        
     def __init__(self,
                  dirs: BatchAddress,
                  seq_len: int,
                  stride: int,
-                 resize: Tuple[int, int]=(201,201),
                  ):
         """
         Initialize the dataset by loading all files from the specified folder.
@@ -231,6 +152,11 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         assert seq_len is not None, "Sequence length must be specified."
         assert stride is not None, "Stride must be specified."
 
+        self.wide           = utils.config['Dataset']['wide']
+        self.reflect_remover = utils.config['Dataset']['reflection_removal']
+        self.embed_bool = utils.config['Dataset']['embedding']['positional_encoding'] != 'False'
+        self.embedID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_{utils.config['Dataset']['embedding']['default_image_size'][0]}x{utils.config['Dataset']['embedding']['default_image_size'][1]}"
+
         self.seq_len        = seq_len
         self.stride         = stride
         # self.DataHandler    = DataHandler(extension=self.extension, resize=resize)
@@ -240,7 +166,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         self.DataAddress    = self.loadOrderedImages(foldersDic,
                                                         seqLength=seq_len,
                                                         _Stride=stride)
-        
+        resize = utils.config['Dataset']['resize'][self.wide]
         self.transform: Callable[[Image.Image], torch.Tensor] = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.Resize(resize),
@@ -248,19 +174,101 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             # transforms.Normalize((0.5,), (0.5,)),
         ])
 
+    def PE_embedding(self,
+                     size_x: int,) -> NDArray[np.uint8] | None:       
+        positional_encoding : bool = False
+        velocity_encoding   : bool = False
+        match utils.config['Dataset']['embedding']['positional_encoding']:
+            case 'False':
+                return None
+            case 'Position':
+                positional_encoding = True
+                velocity_encoding   = False
+                size_x = utils.config['Dataset']['embedding']['default_image_size'][0]
+            case 'Velocity':
+                positional_encoding = False
+                velocity_encoding   = True
+            case _:
+                raise ValueError(f"Invalid positional encoding option: {utils.config['Dataset']['positional_encoding']}")
+            
+        pe_norm = PE_Generator( size_x,
+                                Resize              = False,
+                                velocity_encoding   = velocity_encoding,
+                                positional_encoding = positional_encoding,
+                                PE_height           = utils.config['Dataset']['embedding']['PE_height'],
+                                default_image_size  = utils.config['Dataset']['embedding']['default_image_size'],
+                                )
+        return pe_norm
+
+    def image_embedding(self, source_img: NDArray[np.int8], drop_position:NDArray[np.int8],) -> NDArray[np.int8]:
+        """
+            TODO:
+                - Correct the size of the output, right now its scale and crop is wrong but it show some thing
+        """
+
+        PE_height = utils.config['Dataset']['embedding']['PE_height']
+        # TODO: Embedding is now made in loadAddresses function.
+        pe_norm = cv2.resize(self.embedding_file, (1245, PE_height), interpolation=cv2.INTER_LINEAR)
+
+        endpoint, beginning = drop_position
+
+        # TODO: Check if bitwise not is required.
+        # cv2.bitwise_not(source_img, source_img)
+
+        # TODO: Morphological operations can be added as an option in config file.
+        # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        # source_img     = cv2.morphologyEx(source_img, cv2.MORPH_CLOSE, kernel)
+
+        _, binary_mask  = cv2.threshold(source_img, 20, 255, cv2.THRESH_BINARY_INV)
+        contours, _     = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if not contours:
+            raise ValueError("No dark regions found in the source image.")
+        
+        # Find the largest contour by area
+        largest_contour = max(contours, key=cv2.contourArea)
+        # Create a mask for the largest contour
+        # https://docs.opencv.org/4.x/d9/d61/tutorial_py_morphological_ops.html
+        contour_mask = np.zeros(source_img.shape, dtype=np.uint8)
+        cv2.drawContours(contour_mask, [largest_contour], -1, 255, thickness=cv2.FILLED)
+        contour_mask = cv2.erode(contour_mask,np.ones((5,5),np.uint8),iterations = 3)
+        threshold_activation = 1
+
+        inside = contour_mask <= threshold_activation
+        pe_norm[PE_height-utils.config['Dataset']['embedding']['drop_height']:,endpoint-utils.config['Dataset']['cropped_tolerance']:beginning+utils.config['Dataset']['cropped_tolerance']][inside] = source_img[inside]
+        return pe_norm
+
     def __len__(self):
         return len(self.DataAddress)
 
     def __getitem__(self, idx:int) -> DaughterSet_getitem_:
         seq: list[torch.Tensor] = []
-        for file_path in self.DataAddress[idx][1]:
-            data = Image.open(file_path)
-            data = self.transform(data)
+        
+        viscosity       = self.DataAddress[idx][0]
+        SROF            = self.DataAddress[idx][3]
+        tilt            = self.DataAddress[idx][4]
+
+        for file_path, drop_position in zip(self.DataAddress[idx][1],self.DataAddress[idx][2]):
+            pil = Image.open(file_path).convert("L")
+
+            if isinstance(pil, np.ndarray)==False:
+                pil = np.array(pil)
+
+            if self.reflect_remover:
+                pil = LightSourceReflectionRemover(pil)
+
+            if self.embed_bool:
+                pil = self.image_embedding(pil, drop_position)
+
+            if isinstance(pil, np.ndarray):
+                pil = Image.fromarray(pil.astype(np.uint8))
+
+            data = self.transform(pil)
             seq.append(data)
         # Wrap NumPy array into Torch tensor without copying
         seq_tensor = torch.stack(seq)
 
-        return seq_tensor, torch.tensor(self.DataAddress[idx][0], dtype=torch.float32), torch.tensor(self.DataAddress[idx][2], dtype=torch.int16), torch.tensor(self.DataAddress[idx][3], dtype=torch.float32), torch.tensor(self.DataAddress[idx][4], dtype=torch.int16)
+        return seq_tensor, torch.tensor(viscosity, dtype=torch.float32), torch.tensor(drop_position, dtype=torch.int16), torch.tensor(SROF, dtype=torch.float32), torch.tensor(tilt, dtype=torch.int16)
     
     def checkingFilesExist(self, 
                            files:List[str],
@@ -305,12 +313,25 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         foldersDic: dict[str, DataSetData] = {}
         for folder in data_address:
             viscosity = float(os.path.basename(folder).split("_")[-1])
-            files =  sorted(glob.glob(os.path.join(folder, utils.config['full_size_image_folder'], f"*{extension}")))
+
+            
+            if self.wide==True:
+                files =  sorted(glob.glob(os.path.join(folder, utils.config['full_size_image_folder'],  f"*{extension}")))
+            elif self.wide==False:
+                files =  sorted(glob.glob(os.path.join(folder, utils.config['cropped_image_folder'],    f"*{extension}")))
+            else:
+                raise ValueError("Invalid value for 'wide' configuration.")
+
 
             dropLocation = pd.read_csv(os.path.join(folder, utils.config['cropped_image_folder'], "detections.csv")) # type: ignore
             SROF = pd.read_csv(os.path.join(folder, utils.config['SROF'])) # type: ignore
 
             _ = self.checkingFilesExist(files, dropLocation, SROF)
+            
+            # Embedding generation and saving
+            self.embedding_file = self.PE_embedding(size_x=len(files))
+            if self.embedding_file is not None:
+                cv2.imwrite(os.path.join(folder, f'{self.embedID}.png'), self.embedding_file)
 
             foldersDic[folder] = DataSetData(len(files), files, viscosity, dropLocation, SROF) # type: ignore
         return foldersDic
@@ -319,7 +340,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
     def loadOrderedImages(foldersDic:dict[str, DataSetData],
                         seqLength: int = 2,
                         _Stride: int = 5
-                        ) -> list[tuple[float, list[str | os.PathLike[str]], NDArray[np.int8],  NDArray[np.float16], int]]:
+                        ) -> list[DaughterSet_internal_]:
         """
         Load ordered images from the provided dictionary of folders.
         Caution:
@@ -331,32 +352,43 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         Returns:
             list[list[str | os.PathLike]]: A list of lists, where each inner list contains the paths of the ordered images.
         """
-        DataAddress:list[tuple[float, list[str | os.PathLike[str]], NDArray[np.int8],  NDArray[np.float16], int]] = []
+        DataAddress:list[DaughterSet_internal_] = []
         index = 0
         _go = True
         while _go:
             _failedCases = 0
             for folder, (count, files, viscosity, dropLocation, SROF) in foldersDic.items():
                 # del folder
-                tilt = 360 - int(folder.split(os.sep)[4])
+                tilt = 360 - int(folder.split(os.sep)[5])
 
                 start = index * _Stride
                 end = start + seqLength
                 if end > (count):
                     _failedCases += 1
                 else:
-                    DataAddress.append((viscosity, files[start:end],
+                    DataAddress.append((viscosity,
+                                        files[start:end],
                                         dropLocation.iloc[start:end,1:].to_numpy(dtype=np.int16),   # type: ignore
                                         SROF.iloc[start:end,1:].to_numpy(dtype=np.float16),         # type: ignore
-                                        tilt))      
+                                        tilt,
+                                        # count,
+                                        ))      
             index += 1
             if _failedCases >= foldersDic.keys().__len__():
                 _go = False
         return DataAddress
 
 if __name__ == "__main__":
-    vv = DaughterFolderDataset(dirs=['/media/Dont/Teflon-AVP/280/S2-SNr2.1_D/T528_01_4.460000000000'],
+    
+    vv = DaughterFolderDataset(dirs=['/media/d25u2/Dont/Teflon-AVP/280/S2-SNr2.1_D/T528_01_4.460000000000'],
                          seq_len=1,
                          stride=1,)
     
-    print(vv[10])
+    cc = vv[10]
+
+    # plotting a tensor image
+    import matplotlib.pyplot as plt
+    img = cc[0][0].squeeze().numpy()  # Remove channel dimension
+    plt.imshow(img, cmap='gray')
+    plt.axis('off')  # Hide axis
+    plt.show()  

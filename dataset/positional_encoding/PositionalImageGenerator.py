@@ -156,7 +156,7 @@ def PE_Generator(numberOfImages:int,
                   velocity_encoding:bool = False,
                   positional_encoding:bool = True,
                   default_image_size:tuple[int,int] = (1245, 130),
-                  Resize:bool = True)-> PEmbedType:
+                  Resize:bool = True)-> NDArray[np.uint8]:
     """
     TODO:
         Check position encoding yields a better results or velocity encoding.
@@ -432,24 +432,4 @@ def make_PE_image_FolderFullScale(address:os.PathLike[str],
         cv2.imwrite(os.path.join(save_address, image_name), pe_norm)
     
 if __name__ == "__main__":
-    # pe = main_Visualizer(max_position = 1280, d_model = 530, _plot = False)
-    # result_img = Image.fromarray(pe.astype(np.uint8))
-    # result_img.save('src/PyThon/Viscosity/PositionalEncoding/PositionFullGray.png')
-    # print("Positional encoding image saved.")
-    for address in ['/media/d2u25/Dont/frames_Process_30_Velocity_wide/280/S2-SNr2.1_D/T528_01_4.460000000000',
-                    # '/media/d2u25/Dont/frames_Process_30_Velocity/335/S3-90Per_D/T531_02_127.171108364658'
-                    ]:
-        make_PE_image_FolderFullScale(address = address,
-                             verbose = True,
-                             extension = '.png',
-                             remove_Previous_Dir = False,
-                             velocity_encoding   =   True,#     False,
-                             positional_encoding =  False,#     True
-                            )
-    # make_PE_image_FolderFullScale(address = '/media/d2u25/Dont/frames_Process_30_Velocity/285/S3-50Per_D/T442_01_5.467708415210',
-    #                               verbose = False,
-    #                                 extension = '.png',
-    #                                 remove_Previous_Dir = False,
-    #                                 velocity_encoding   =   True,#     False,
-    #                                 positional_encoding =  False,#     True
-    #                                 )
+    make_PE_image()

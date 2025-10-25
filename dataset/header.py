@@ -11,7 +11,7 @@ import random
 import numpy as np
 import torch
 import pandas as pd
-
+from numpy.typing import NDArray
 from typing import Dict, List, TypeAlias, NamedTuple
 
 def setSeed(seed:int) -> None:
@@ -48,6 +48,15 @@ class DataSetData(NamedTuple):
     viscosity: float
     dropLocation: pd.DataFrame | None = None
     SROF: pd.DataFrame | None = None
+
+DaughterSet_internal_: TypeAlias = tuple[float, # viscosity
+                                         list[str | os.PathLike[str]], # addresses
+                                         NDArray[np.int8], # drop location
+                                         NDArray[np.float16], # 4S-SROF
+                                         int, # tilt
+                                        #  int, # count of images
+                                         ]
+
 
 DataSetShitInfo: TypeAlias = dict[str, DataSetData]
 
