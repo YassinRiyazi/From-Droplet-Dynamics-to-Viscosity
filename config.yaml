@@ -7,11 +7,13 @@ data_resize: [201, 201]
 
 full_size_image_folder: 'frames_rotated'
 cropped_image_folder: 'databases'
+super_resolution_cropped : 'databases_SR'
 
-SROF: 'result_2Pass_corrected.csv'
+SROF: 'result.csv' #'result_2Pass_corrected.csv'
 
 Dataset:
   wide                  : False # using the full landscape images or only cropped droplets
+  super_resolution      : True  # whether to use super-resolution cropped images
   resize: {
             True                  : [1280, 512], # for full landscape images
             False                 : [201 , 201]  # for cropped case
@@ -22,8 +24,9 @@ Dataset:
     positional_encoding   : 'Position' # choosing what kind of encoding to be used
     Valid_encoding        : ['False', 'Position', 'Velocity',] # available encoding options
     PE_height             : 250 # number of frequency bands for positional encoding
-    default_image_size    : [1245, 250] # default image size for positional encoding
-    drop_height : 134
+    default_image_size    : [1280, 250] # default image size for positional encoding
+    drop_height           : 156
+    super_resolution_factor: 3
 
   cropped_tolerance  : 15 # number of pixels above and below the droplet to include in cropped images
 

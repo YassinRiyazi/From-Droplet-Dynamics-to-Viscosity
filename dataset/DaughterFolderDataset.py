@@ -9,10 +9,15 @@ TODO:
     - Generate a random sequence of images from a folder. and test different dataloader settings.
 
 Changes:
-    - 2024-08-06:   Initial version.
-        - [V] Balancing data with number of images in each repetition.
-        - [V] Saving and loading dataset splits.
-        - [V] Splitting test, validation and train sets.
+    - 11.11.2025:
+        - [X] Wrong dimention on emebdding
+        - [] Add a dictionary for different embedding types/sizes.
+        - [] Add super resolution option.
+
+    - 08.06.2025:   Initial version.
+        - [X] Balancing data with number of images in each repetition.
+        - [X] Saving and loading dataset splits.
+        - [X] Splitting test, validation and train sets.
 
 Learned:
     The type annotation
@@ -152,8 +157,10 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         assert seq_len is not None, "Sequence length must be specified."
         assert stride is not None, "Stride must be specified."
 
-        self.wide           = utils.config['Dataset']['wide']
-        self.reflect_remover = utils.config['Dataset']['reflection_removal']
+        self.wide               = utils.config['Dataset']['wide']
+        self.super_res          = utils.config['Dataset'].get('super_resolution', False)
+        self.super_res_factor   = utils.config['Dataset']['embedding'].get('super_resolution_factor', 1)
+        self.reflect_remover    = utils.config['Dataset']['reflection_removal']
         self.embed_bool = utils.config['Dataset']['embedding']['positional_encoding'] != 'False'
         self.embedID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_{utils.config['Dataset']['embedding']['default_image_size'][0]}x{utils.config['Dataset']['embedding']['default_image_size'][1]}"
 
@@ -190,13 +197,20 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
                 velocity_encoding   = True
             case _:
                 raise ValueError(f"Invalid positional encoding option: {utils.config['Dataset']['positional_encoding']}")
-            
+        
+        PE_height = utils.config['Dataset']['embedding']['PE_height']
+        # TODO adjust the height based on config file
+        if self.super_res:
+            size_x      *= self.super_res_factor
+            PE_height   *= self.super_res_factor
+
+
         pe_norm = PE_Generator( size_x,
                                 Resize              = False,
                                 velocity_encoding   = velocity_encoding,
                                 positional_encoding = positional_encoding,
-                                PE_height           = utils.config['Dataset']['embedding']['PE_height'],
-                                default_image_size  = utils.config['Dataset']['embedding']['default_image_size'],
+                                PE_height           = PE_height,
+                                default_image_size  = (),
                                 )
         return pe_norm
 
@@ -207,10 +221,20 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         """
 
         PE_height = utils.config['Dataset']['embedding']['PE_height']
+        drop_height = utils.config['Dataset']['embedding']['drop_height']
+        
         # TODO: Embedding is now made in loadAddresses function.
-        pe_norm = cv2.resize(self.embedding_file, (1245, PE_height), interpolation=cv2.INTER_LINEAR)
-
         endpoint, beginning = drop_position
+
+        if self.super_res:
+            PE_height  = PE_height * self.super_res_factor
+            drop_height = drop_height * self.super_res_factor
+            endpoint   = endpoint * self.super_res_factor
+            beginning  = beginning * self.super_res_factor
+
+        pe_norm     = cv2.resize(self.embedding_file, (1245, PE_height), interpolation=cv2.INTER_LINEAR)
+        tolerance   = utils.config['Dataset']['cropped_tolerance']
+        pe_norm     = pe_norm[:,endpoint-tolerance:beginning+tolerance]
 
         # TODO: Check if bitwise not is required.
         # cv2.bitwise_not(source_img, source_img)
@@ -235,7 +259,9 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         threshold_activation = 1
 
         inside = contour_mask <= threshold_activation
-        pe_norm[PE_height-utils.config['Dataset']['embedding']['drop_height']:,endpoint-utils.config['Dataset']['cropped_tolerance']:beginning+utils.config['Dataset']['cropped_tolerance']][inside] = source_img[inside]
+        # pe_norm[PE_height-utils.config['Dataset']['embedding']['drop_height']:,
+        #         endpoint-utils.config['Dataset']['cropped_tolerance']:beginning+utils.config['Dataset']['cropped_tolerance']][inside] = source_img[inside]
+        pe_norm[PE_height-drop_height:,][inside] = source_img[inside]
         return pe_norm
 
     def __len__(self):
@@ -288,10 +314,16 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         detection_set = set(dropLocation['image'])
         SROF_set = set(SROF['file number'])
 
-        if len(filename_set ^ detection_set)!=0:
+        # TODO : Fix 4s-SROF processor
+        _ignore = files.pop()  # removing last image because its not being processed in the csv files.
+        _ignore = {os.path.basename(_ignore)}
+
+        if (filename_set ^ detection_set) - _ignore:
+            print(filename_set ^ detection_set)
             raise FileNotFoundError("Some files in dropLocation CSV do not match the image files.")
         
-        if len(filename_set ^ SROF_set)!=0:
+        if (filename_set ^ SROF_set) - _ignore:
+            print(filename_set ^ SROF_set)
             raise FileNotFoundError("Some files in 4S-SROF CSV do not match the image files.")
         
         return True
@@ -317,11 +349,12 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             
             if self.wide==True:
                 files =  sorted(glob.glob(os.path.join(folder, utils.config['full_size_image_folder'],  f"*{extension}")))
-            elif self.wide==False:
+            elif self.wide == False and self.super_res == False:
                 files =  sorted(glob.glob(os.path.join(folder, utils.config['cropped_image_folder'],    f"*{extension}")))
+            elif self.super_res == True:
+                files =  sorted(glob.glob(os.path.join(folder, utils.config['super_resolution_cropped'],    f"*{extension}")))
             else:
                 raise ValueError("Invalid value for 'wide' configuration.")
-
 
             dropLocation = pd.read_csv(os.path.join(folder, utils.config['cropped_image_folder'], "detections.csv")) # type: ignore
             SROF = pd.read_csv(os.path.join(folder, utils.config['SROF'])) # type: ignore
@@ -380,7 +413,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
 
 if __name__ == "__main__":
     
-    vv = DaughterFolderDataset(dirs=['/media/d25u2/Dont/Teflon-AVP/280/S2-SNr2.1_D/T528_01_4.460000000000'],
+    vv = DaughterFolderDataset(dirs=['/media/d25u2/Dont/Viscosity/280/S5-S2.01_S20/D175220_01'],
                          seq_len=1,
                          stride=1,)
     

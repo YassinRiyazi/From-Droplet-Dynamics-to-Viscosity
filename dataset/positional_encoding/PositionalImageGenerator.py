@@ -155,7 +155,7 @@ def PE_Generator(numberOfImages:int,
                   PE_height:int,
                   velocity_encoding:bool = False,
                   positional_encoding:bool = True,
-                  default_image_size:tuple[int,int] = (1245, 130),
+                  default_image_size:tuple[int,int] = (1208, 130),
                   Resize:bool = True)-> NDArray[np.uint8]:
     """
     TODO:
