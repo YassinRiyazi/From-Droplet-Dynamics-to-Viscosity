@@ -50,9 +50,9 @@ from    colorama        import  Fore, Style, init as colorama_init
 from    typing          import  Any, TypeAlias, Tuple, Callable, Optional, Union
 
 if __name__ == "__main__":
-    from .FinalresultPlotter import ResultSavorMain
-else:
     from FinalresultPlotter import ResultSavorMain
+else:
+    from .FinalresultPlotter import ResultSavorMain
 
 device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -60,9 +60,9 @@ colorama_init(autoreset=True)
 DataGetItemType: TypeAlias = Tuple[torch.Tensor, ...]
 
 if __name__ == "__main__":
-    from .RealTimePlotter import RealTimePlotter
-else:
     from RealTimePlotter import RealTimePlotter
+else:
+    from .RealTimePlotter import RealTimePlotter
 
 
 def set_divider(optimizer: torch.optim.Optimizer,

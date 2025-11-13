@@ -27,6 +27,11 @@ from    PIL                         import  Image
 from    torchvision                 import  transforms # type: ignore
 
 if __name__ == "__main__":
+    import sys 
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(os.path.abspath(__file__))
+    sys.path.append(__file__)
+    import utils
     from    header                  import  StringListDict, setSeed, DaughterSet_getitem_
     from    DaughterFolderDataset   import  DaughterFolderDataset
     from    light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
@@ -35,6 +40,7 @@ else:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     sys.path.append(os.path.abspath(__file__))
     sys.path.append(__file__)
+    import utils
     from    .header                 import  StringListDict, setSeed, DaughterSet_getitem_
     from    .DaughterFolderDataset  import  DaughterFolderDataset
     from    .light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
@@ -141,7 +147,7 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         self._MaximumViscosityGetter = cache['maximum_viscosity']
         
         # Reconstruct DaughterSets using cached DataAddress lists
-        from .DaughterFolderDataset import DaughterFolderDataset
+        # from .DaughterFolderDataset import DaughterFolderDataset
         
         # Create a prototype to get config-dependent attributes
         try:
@@ -438,37 +444,18 @@ if __name__ == "__main__":
     # save_dataset_with_splits(DataAddress="/media/d25u2/Dont/Viscosity")
 
     # Phase 2: Load dataset splits and create MotherFolderDataset instances
-    dicAddressesTrain, dicAddressesValidation, dicAddressesTest = dicLoader(root="/media/d25u2/Dont/Viscosity",)
-
-    # Phase 3a: Create MotherFolderDataset and save cache for fast future loading
-    cache_path = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output/dataset_cache_train.pkl"
-    
-    # Check if cache exists
-    if os.path.exists(cache_path):
-        print("Loading dataset from cache...")
-        dataset = MotherFolderDataset.load_cache(cache_path)
-    else:
-        print("Creating dataset from scratch (this will be slow)...")
-        dataset = MotherFolderDataset(dicAddresses=dicAddressesTrain,
-                                      stride=1,
-                                      sequence_length=5)
-        print("Saving dataset cache for future use...")
-        dataset.save_cache(cache_path)
-    
-    print(f"Dataset ready! Total samples: {len(dataset)}")
-
-
-    cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
-    os.makedirs(cache_dir, exist_ok=True)
-    
-    cache_train = os.path.join(cache_dir, "dataset_cache_train.pkl")
-    cache_val = os.path.join(cache_dir, "dataset_cache_val.pkl")
-    cache_test = os.path.join(cache_dir, "dataset_cache_test.pkl")
-    
     # Load dataset splits
     dicAddressesTrain, dicAddressesValidation, dicAddressesTest = dicLoader(
         root="/media/d25u2/Dont/Viscosity"
     )
+
+    cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
+    os.makedirs(cache_dir, exist_ok=True)
+    ID = f"s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
+    cache_train = os.path.join(cache_dir, f"dataset_cache_train_{ID}.pkl")
+    cache_val = os.path.join(cache_dir, f"dataset_cache_val_{ID}.pkl")
+    # cache_test = os.path.join(cache_dir, f"dataset_cache_test.pkl")
+    
     
     # ===== TRAINING DATASET =====
     if os.path.exists(cache_train):
@@ -478,13 +465,14 @@ if __name__ == "__main__":
         print("Creating TRAINING dataset from scratch (this will take time)...")
         train_dataset = MotherFolderDataset(
             dicAddresses=dicAddressesTrain,
-            stride=1,
-            sequence_length=5
+            stride=utils.config['Training']['Constant_feature_AE']['Stride'],
+            sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
         )
         print("Saving training dataset cache...")
         train_dataset.save_cache(cache_train)
     
     # ===== VALIDATION DATASET =====
+
     if os.path.exists(cache_val):
         print("Loading VALIDATION dataset from cache...")
         val_dataset = MotherFolderDataset.load_cache(cache_val)
@@ -492,25 +480,25 @@ if __name__ == "__main__":
         print("Creating VALIDATION dataset from scratch...")
         val_dataset = MotherFolderDataset(
             dicAddresses=dicAddressesValidation,
-            stride=1,
-            sequence_length=5
+            stride=utils.config['Training']['Constant_feature_AE']['Stride'],
+            sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
         )
         print("Saving validation dataset cache...")
         val_dataset.save_cache(cache_val)
     
-    # ===== TEST DATASET =====
-    if os.path.exists(cache_test):
-        print("Loading TEST dataset from cache...")
-        test_dataset = MotherFolderDataset.load_cache(cache_test)
-    else:
-        print("Creating TEST dataset from scratch...")
-        test_dataset = MotherFolderDataset(
-            dicAddresses=dicAddressesTest,
-            stride=1,
-            sequence_length=5
-        )
-        print("Saving test dataset cache...")
-        test_dataset.save_cache(cache_test)
+    # # ===== TEST DATASET =====
+    # if os.path.exists(cache_test):
+    #     print("Loading TEST dataset from cache...")
+    #     test_dataset = MotherFolderDataset.load_cache(cache_test)
+    # else:
+    #     print("Creating TEST dataset from scratch...")
+    #     test_dataset = MotherFolderDataset(
+    #         dicAddresses=dicAddressesTest,
+    #         stride=1,
+    #         sequence_length=5
+    #     )
+    #     print("Saving test dataset cache...")
+    #     test_dataset.save_cache(cache_test)
     
     # Example: Test loading a sample
     # sample, label = dataset[0]

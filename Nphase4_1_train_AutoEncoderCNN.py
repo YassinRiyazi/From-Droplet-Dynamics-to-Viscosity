@@ -24,10 +24,12 @@ from    torch.optim         import  Adam, lr_scheduler, AdamW
 from    torchvision.utils   import  save_image
 from    typing              import  Callable, Optional, Tuple, Union
 import  torch.nn.functional as F
+import dataset
+import utils
+
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../', 'src/PyThon/NeuralNetwork/trainer')))
-from Base import train
-
+import deeplearning
 # Set the random seed for reproducibility
 torch.manual_seed(42)
 if torch.cuda.is_available():
@@ -202,40 +204,49 @@ def trainer(
     
     ###################################
     ###################################
-    # fluid_Constraints: list[str]= []
-    # tilt_Exclusion: list[str]   = []# ,'/285/','/290/','/295/','/300/'
-    # Sorted_fluid = ['S3-SDS10_D+0.8797 mPa.s', 'S3-SDS01_D+0.8797 mPa.s', 'S3-Water_D+0.8797 mPa.s', 'S3-Water_nD+0.8797 mPa.s', 'S2-SNr2.1_D+2.5426 mPa.s', 'S2-SNr2.14_D+2.5426 mPa.s', 'S3-SNr3.01_D+2.5681 mPa.s', 'S3-50Per_D+5.7695 mPa.s', 'S3-SNr3.02_D+13.5901 mPa.s', 'S3-70Per_D+17.4963 mPa.s', 'S2-SNr2.5_D+19.9383 mPa.s', 'S3-SNr3.03_D+24.0283 mPa.s', 'S3-SNr2.6_D+24.0722 mPa.s', 'S3-SNr2.7_D+28.1570 mPa.s', 'S2-SNr2.9_D+36.3760 mPa.s', 'S3-80Per_D+38.1382 mPa.s', 'S3-SNr3.04_D+44.5447 mPa.s', 'S3-SNr3.05_D+54.9317 mPa.s', 'S3-SNr3.06_D+65.1178 mPa.s', 'S3-SNr3.07_D+75.2828 mPa.s', 'S3-SNr3.08_D+84.6743 mPa.s']
-    # # 'S3-SDS99_D+0.8797 mPa.s',, 'S3-SNr3.12_D+124.1283 mPa.s', 'S3-90Per_D+142.4221 mPa.s'
-    # for fluid in Sorted_fluid[::2]: #Sorted_fluid:
-    #     fluid = fluid.split('+')[0]
-    #     fluid_Constraints.append(fluid)
+    cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
+    os.makedirs(cache_dir, exist_ok=True)
+    ID = f"s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
+    cache_train = os.path.join(cache_dir, f"dataset_cache_train_{ID}.pkl")
+    cache_val = os.path.join(cache_dir, f"dataset_cache_val_{ID}.pkl")
+    # cache_test = os.path.join(cache_dir, f"dataset_cache_test.pkl")
+    
+    
+    # ===== TRAINING DATASET =====
+    if os.path.exists(cache_train):
+        print("Loading TRAINING dataset from cache...")
+        train_dataset = dataset.MotherFolderDataset.load_cache(cache_train)
+    else:
+        print("Creating TRAINING dataset from scratch (this will take time)...")
+        train_dataset = dataset.MotherFolderDataset(
+            dicAddresses=dicAddressesTrain,
+            stride=utils.config['Training']['Constant_feature_AE']['Stride'],
+            sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
+        )
+        print("Saving training dataset cache...")
+        train_dataset.save_cache(cache_train)
+    
+    # ===== VALIDATION DATASET =====
 
-    # dicAddressesTrain           = DSS.DS_limiter(dicAddressesTrain,fluid_Constraints,tilt_Exclusion)
-    # dicAddressesValidation      = DSS.DS_limiter_inv(dicAddressesValidation,fluid_Constraints,tilt_Exclusion)
-    ###################################
-    ###################################
-
-    # Load dataset
-    train_set = DSS.MotherFolderDataset(
-                                        resize=ImageSize,
-                                        dicAddresses = dicAddressesTrain,
-                                        stride=stride,
-                                        sequence_length=sequence_length,
-                                        extension=".png",
-                                    )
-
-    val_set = DSS.MotherFolderDataset(  
-                                        resize=ImageSize,
-                                        dicAddresses = dicAddressesValidation,
-                                        stride=stride,
-                                        sequence_length=sequence_length,
-                                        extension=".png",
-                                    )
+    if os.path.exists(cache_val):
+        print("Loading VALIDATION dataset from cache...")
+        val_dataset = dataset.MotherFolderDataset.load_cache(cache_val)
+    else:
+        print("Creating VALIDATION dataset from scratch...")
+        val_dataset = dataset.MotherFolderDataset(
+            dicAddresses=dicAddressesValidation,
+            stride=utils.config['Training']['Constant_feature_AE']['Stride'],
+            sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
+        )
+        print("Saving validation dataset cache...")
+        val_dataset.save_cache(cache_val)
 
 
     # Optimize DataLoader
-    train_loader    = DataLoader(train_set, batch_size=batch_size, num_workers=16, shuffle=True, pin_memory=True)
-    val_loader      = DataLoader(val_set, batch_size=batch_size, num_workers=16, shuffle=False, pin_memory=True)
+    train_loader    = DataLoader(train_dataset, batch_size=utils.config['Training']['batch_size'], 
+                                 num_workers=utils.config['Training']['num_workers'], shuffle=True, pin_memory=True)
+    val_loader      = DataLoader(val_dataset, batch_size=utils.config['Training']['batch_size'], 
+                                 num_workers=utils.config['Training']['num_workers'], shuffle=False, pin_memory=True)
 
     optimizer       = AdamW(model.parameters(), lr=learning_rate, 
                             weight_decay=1e-4
@@ -250,7 +261,7 @@ def trainer(
         scheduler   = lr_scheduler.ExponentialLR(optimizer, gamma=0.85)  # Divide by 5 every epoch 0.2
 
     # Train the model
-    model, optimizer, report = train(
+    model, optimizer, report = deeplearning.train(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,

@@ -70,9 +70,9 @@ else:
     import sys
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     sys.path.append(os.path.abspath(__file__))
-    from positional_encoding.PositionalImageGenerator import PE_Generator
-    from light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
-    from    header                   import  BatchAddress, DataSetData, DaughterSet_internal_, DaughterSet_getitem_ # type: ignore
+    from .positional_encoding.PositionalImageGenerator import PE_Generator
+    from .light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
+    from    .header                   import  BatchAddress, DataSetData, DaughterSet_internal_, DaughterSet_getitem_ # type: ignore
 
 import  utils
 from scipy.interpolate import interp1d, CubicSpline # type: ignore
@@ -247,7 +247,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             tolerance   = tolerance     * self.super_res_factor
 
         # pe_norm     = cv2.resize(self.embedding_file, (1245, PE_height), interpolation=cv2.INTER_LINEAR)
-        pe_norm     = self.embedding_file[count]
+        pe_norm     = self.embedding_file[count].copy()
         pe_norm     = pe_norm[:,endpoint-tolerance:beginning+tolerance]
 
         # TODO: Check if bitwise not is required.

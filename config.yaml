@@ -13,7 +13,7 @@ SROF: 'result.csv' #'result_2Pass_corrected.csv'
 
 Dataset:
   wide                  : False # using the full landscape images or only cropped droplets
-  super_resolution      : True  # whether to use super-resolution cropped images
+  super_resolution      : False  # whether to use super-resolution cropped images
   resize: {
             True                  : [1280, 512], # for full landscape images
             False                 : [201 , 201]  # for cropped case
@@ -21,7 +21,7 @@ Dataset:
   reflection_removal    : False # whether to remove reflection artifacts in images
 
   embedding:
-    positional_encoding   : 'Velocity' # choosing what kind of encoding to be used
+    positional_encoding   : 'False' # choosing what kind of encoding to be used
     Valid_encoding        : ['False', 'Position', 'Velocity',] # available encoding options
     PE_height             : 250 # number of frequency bands for positional encoding
     default_image_size    : [1280, 250] # default image size for positional encoding
@@ -30,3 +30,12 @@ Dataset:
 
   cropped_tolerance  : 15 # number of pixels above and below the droplet to include in cropped images
 
+Training:
+  batch_size            : 16
+  num_workers           : 8
+  learning_rate         : 0.0001
+  weight_decay          : 0.00001
+  num_epochs            : 200
+  Constant_feature_AE:
+    Stride: 10
+    window_Lenght: 1
