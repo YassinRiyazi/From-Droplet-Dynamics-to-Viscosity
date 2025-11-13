@@ -461,6 +461,13 @@ if __name__ == "__main__":
     if os.path.exists(cache_train):
         print("Loading TRAINING dataset from cache...")
         train_dataset = MotherFolderDataset.load_cache(cache_train)
+
+
+        import matplotlib.pyplot as plt
+        img = train_dataset[0][0].squeeze().numpy()  # Remove channel dimension
+        plt.imshow(img, cmap='gray')
+        plt.axis('off')  # Hide axis
+        plt.show()  
     else:
         print("Creating TRAINING dataset from scratch (this will take time)...")
         train_dataset = MotherFolderDataset(

@@ -69,10 +69,11 @@ if __name__ == "__main__":
 else:
     import sys
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
     sys.path.append(os.path.abspath(__file__))
-    from .positional_encoding.PositionalImageGenerator import PE_Generator
-    from .light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
-    from    .header                   import  BatchAddress, DataSetData, DaughterSet_internal_, DaughterSet_getitem_ # type: ignore
+    from positional_encoding.PositionalImageGenerator import PE_Generator
+    from light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
+    from header                   import  BatchAddress, DataSetData, DaughterSet_internal_, DaughterSet_getitem_ # type: ignore
 
 import  utils
 from scipy.interpolate import interp1d, CubicSpline # type: ignore

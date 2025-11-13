@@ -254,8 +254,8 @@ def trainer(
     criterion       = nn.MSELoss()
 
     # Learning rate scheduler, If optimizer is AdamW skipping scheduler
+    scheduler   = None
     if isinstance(optimizer, AdamW):
-        scheduler   = None
         # scheduler   = lr_scheduler.ExponentialLR(optimizer, gamma=0.85)  # Divide by 5 every epoch 0.2
     else:
         scheduler   = lr_scheduler.ExponentialLR(optimizer, gamma=0.85)  # Divide by 5 every epoch 0.2

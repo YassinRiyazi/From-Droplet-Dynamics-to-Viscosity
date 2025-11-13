@@ -21,7 +21,7 @@ Dataset:
   reflection_removal    : False # whether to remove reflection artifacts in images
 
   embedding:
-    positional_encoding   : 'False' # choosing what kind of encoding to be used
+    positional_encoding   : 'Velocity' # choosing what kind of encoding to be used
     Valid_encoding        : ['False', 'Position', 'Velocity',] # available encoding options
     PE_height             : 250 # number of frequency bands for positional encoding
     default_image_size    : [1280, 250] # default image size for positional encoding
