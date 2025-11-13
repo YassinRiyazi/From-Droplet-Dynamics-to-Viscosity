@@ -61,15 +61,18 @@ import pandas as pd
 from numpy.typing import NDArray
 
 if __name__ == "__main__":
-    from positional_encoding.PositionalImageGenerator import PE_Generator
-    from light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
-    from    header                  import  BatchAddress, DataSetData, DaughterSet_internal_, setSeed, DaughterSet_getitem_ # type: ignore
     import sys
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from positional_encoding.PositionalImageGenerator import PE_Generator
+    from light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
+    from    header                  import  BatchAddress, DataSetData, DaughterSet_internal_, DaughterSet_getitem_ # type: ignore
 else:
-    from .positional_encoding.PositionalImageGenerator import PE_Generator
-    from .light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
-    from    .header                   import  BatchAddress, DataSetData, DaughterSet_internal_, setSeed, DaughterSet_getitem_ # type: ignore
+    import sys
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(os.path.abspath(__file__))
+    from positional_encoding.PositionalImageGenerator import PE_Generator
+    from light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
+    from    header                   import  BatchAddress, DataSetData, DaughterSet_internal_, DaughterSet_getitem_ # type: ignore
 
 import  utils
 from scipy.interpolate import interp1d, CubicSpline # type: ignore
@@ -162,7 +165,11 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         self.super_res_factor   = utils.config['Dataset']['embedding'].get('super_resolution_factor', 1)
         self.reflect_remover    = utils.config['Dataset']['reflection_removal']
         self.embed_bool = utils.config['Dataset']['embedding']['positional_encoding'] != 'False'
-        self.embedID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_{utils.config['Dataset']['embedding']['default_image_size'][0]}x{utils.config['Dataset']['embedding']['default_image_size'][1]}"
+        self.embedID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_"
+        if self.super_res:
+            self.embedID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_"
+
+        self.embedding_file:dict[int, NDArray[np.uint8] | None] = {}
 
         self.seq_len        = seq_len
         self.stride         = stride
@@ -174,6 +181,8 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
                                                         seqLength=seq_len,
                                                         _Stride=stride)
         resize = utils.config['Dataset']['resize'][self.wide]
+        if self.super_res:
+            resize = (resize[0]*self.super_res_factor, resize[1]*self.super_res_factor)
         self.transform: Callable[[Image.Image], torch.Tensor] = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.Resize(resize),
@@ -185,6 +194,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
                      size_x: int,) -> NDArray[np.uint8] | None:       
         positional_encoding : bool = False
         velocity_encoding   : bool = False
+        image_width = utils.config['Dataset']['embedding']['default_image_size'][0]
         match utils.config['Dataset']['embedding']['positional_encoding']:
             case 'False':
                 return None
@@ -203,18 +213,20 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         if self.super_res:
             size_x      *= self.super_res_factor
             PE_height   *= self.super_res_factor
+            image_width *= self.super_res_factor
+
 
 
         pe_norm = PE_Generator( size_x,
-                                Resize              = False,
+                                Resize              = True,
                                 velocity_encoding   = velocity_encoding,
                                 positional_encoding = positional_encoding,
                                 PE_height           = PE_height,
-                                default_image_size  = (),
+                                default_image_size  = (image_width,PE_height),
                                 )
         return pe_norm
 
-    def image_embedding(self, source_img: NDArray[np.int8], drop_position:NDArray[np.int8],) -> NDArray[np.int8]:
+    def image_embedding(self, source_img: NDArray[np.int8], drop_position:NDArray[np.int8], count:int) -> NDArray[np.int8]:
         """
             TODO:
                 - Correct the size of the output, right now its scale and crop is wrong but it show some thing
@@ -222,18 +234,20 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
 
         PE_height = utils.config['Dataset']['embedding']['PE_height']
         drop_height = utils.config['Dataset']['embedding']['drop_height']
+        tolerance   = utils.config['Dataset']['cropped_tolerance']
         
         # TODO: Embedding is now made in loadAddresses function.
         endpoint, beginning = drop_position
 
         if self.super_res:
-            PE_height  = PE_height * self.super_res_factor
-            drop_height = drop_height * self.super_res_factor
-            endpoint   = endpoint * self.super_res_factor
-            beginning  = beginning * self.super_res_factor
+            PE_height   = PE_height     * self.super_res_factor
+            drop_height = drop_height   * self.super_res_factor
+            endpoint    = endpoint      * self.super_res_factor
+            beginning   = beginning     * self.super_res_factor
+            tolerance   = tolerance     * self.super_res_factor
 
-        pe_norm     = cv2.resize(self.embedding_file, (1245, PE_height), interpolation=cv2.INTER_LINEAR)
-        tolerance   = utils.config['Dataset']['cropped_tolerance']
+        # pe_norm     = cv2.resize(self.embedding_file, (1245, PE_height), interpolation=cv2.INTER_LINEAR)
+        pe_norm     = self.embedding_file[count]
         pe_norm     = pe_norm[:,endpoint-tolerance:beginning+tolerance]
 
         # TODO: Check if bitwise not is required.
@@ -261,7 +275,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         inside = contour_mask <= threshold_activation
         # pe_norm[PE_height-utils.config['Dataset']['embedding']['drop_height']:,
         #         endpoint-utils.config['Dataset']['cropped_tolerance']:beginning+utils.config['Dataset']['cropped_tolerance']][inside] = source_img[inside]
-        pe_norm[PE_height-drop_height:,][inside] = source_img[inside]
+        pe_norm[PE_height-drop_height:,:][inside] = source_img[inside]
         return pe_norm
 
     def __len__(self):
@@ -273,6 +287,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         viscosity       = self.DataAddress[idx][0]
         SROF            = self.DataAddress[idx][3]
         tilt            = self.DataAddress[idx][4]
+        count           = self.DataAddress[idx][5]
 
         for file_path, drop_position in zip(self.DataAddress[idx][1],self.DataAddress[idx][2]):
             pil = Image.open(file_path).convert("L")
@@ -284,7 +299,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
                 pil = LightSourceReflectionRemover(pil)
 
             if self.embed_bool:
-                pil = self.image_embedding(pil, drop_position)
+                pil = self.image_embedding(pil, drop_position, count)
 
             if isinstance(pil, np.ndarray):
                 pil = Image.fromarray(pil.astype(np.uint8))
@@ -293,13 +308,14 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             seq.append(data)
         # Wrap NumPy array into Torch tensor without copying
         seq_tensor = torch.stack(seq)
-
+        print(f"address {self.DataAddress[idx][1]} Dataset __getitem__ at index {idx}")
         return seq_tensor, torch.tensor(viscosity, dtype=torch.float32), torch.tensor(drop_position, dtype=torch.int16), torch.tensor(SROF, dtype=torch.float32), torch.tensor(tilt, dtype=torch.int16)
     
     def checkingFilesExist(self, 
                            files:List[str],
                            dropLocation: pd.DataFrame,
-                           SROF: pd.DataFrame
+                           SROF: pd.DataFrame,
+                           folder: str
                            ) -> bool:
         """
         Check if all files in the provided list of addresses exist.
@@ -320,11 +336,11 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
 
         if (filename_set ^ detection_set) - _ignore:
             print(filename_set ^ detection_set)
-            raise FileNotFoundError("Some files in dropLocation CSV do not match the image files.")
+            raise FileNotFoundError(f"Some files in dropLocation CSV do not match the image files in folder {folder}.")
         
         if (filename_set ^ SROF_set) - _ignore:
             print(filename_set ^ SROF_set)
-            raise FileNotFoundError("Some files in 4S-SROF CSV do not match the image files.")
+            raise FileNotFoundError(f"Some files in 4S-SROF CSV do not match the image files in folder {folder}.")
         
         return True
 
@@ -357,16 +373,19 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
                 raise ValueError("Invalid value for 'wide' configuration.")
 
             dropLocation = pd.read_csv(os.path.join(folder, utils.config['cropped_image_folder'], "detections.csv")) # type: ignore
+            
             SROF = pd.read_csv(os.path.join(folder, utils.config['SROF'])) # type: ignore
 
-            _ = self.checkingFilesExist(files, dropLocation, SROF)
-            
+            _ = self.checkingFilesExist(files, dropLocation, SROF,folder)
+            _lenght = len(files)
             # Embedding generation and saving
-            self.embedding_file = self.PE_embedding(size_x=len(files))
-            if self.embedding_file is not None:
-                cv2.imwrite(os.path.join(folder, f'{self.embedID}.png'), self.embedding_file)
+            self.embedding_file[_lenght] = self.PE_embedding(size_x=len(files))
+            if self.embedding_file[_lenght] is not None:
+                size_x = self.embedding_file[_lenght].shape[1]
+                size_y = self.embedding_file[_lenght].shape[0]
+                cv2.imwrite(os.path.join(folder, f'{self.embedID}{size_x}x{size_y}.png'), self.embedding_file[_lenght])
 
-            foldersDic[folder] = DataSetData(len(files), files, viscosity, dropLocation, SROF) # type: ignore
+            foldersDic[folder] = DataSetData(_lenght, files, viscosity, dropLocation, SROF) # type: ignore
         return foldersDic
     
     @staticmethod
@@ -404,7 +423,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
                                         dropLocation.iloc[start:end,1:].to_numpy(dtype=np.int16),   # type: ignore
                                         SROF.iloc[start:end,1:].to_numpy(dtype=np.float16),         # type: ignore
                                         tilt,
-                                        # count,
+                                        count,
                                         ))      
             index += 1
             if _failedCases >= foldersDic.keys().__len__():
@@ -412,15 +431,26 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         return DataAddress
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     
-    vv = DaughterFolderDataset(dirs=['/media/d25u2/Dont/Viscosity/280/S5-S2.01_S20/D175220_01'],
+    vv = DaughterFolderDataset(dirs=['/media/d25u2/Dont/Viscosity/280/S5-S2.01_S20/D175220_01_4.46',
+                                    #  '/media/d25u2/Dont/Viscosity/280/S5-S2.01_S20/D175220_02_4.46',
+                                     '/media/d25u2/Dont/Viscosity/280/S5-S90per_S8/D165644_16_142.40'],
                          seq_len=1,
                          stride=1,)
     
-    cc = vv[10]
-
+    cc = vv[317]
+    print(cc[0].shape,vv.__len__())
     # plotting a tensor image
-    import matplotlib.pyplot as plt
+    img = cc[0][0].squeeze().numpy()  # Remove channel dimension
+    plt.imshow(img, cmap='gray')
+    plt.axis('off')  # Hide axis
+    plt.show()  
+
+
+    cc = vv[318]
+    print(cc[0].shape,vv.__len__())
+    # plotting a tensor image
     img = cc[0][0].squeeze().numpy()  # Remove channel dimension
     plt.imshow(img, cmap='gray')
     plt.axis('off')  # Hide axis

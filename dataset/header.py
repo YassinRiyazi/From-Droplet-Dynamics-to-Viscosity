@@ -54,7 +54,7 @@ DaughterSet_internal_: TypeAlias = tuple[float, # viscosity
                                          NDArray[np.int8], # drop location
                                          NDArray[np.float16], # 4S-SROF
                                          int, # tilt
-                                        #  int, # count of images
+                                         int, # count of images
                                          ]
 
 

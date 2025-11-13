@@ -18,17 +18,26 @@ import glob
 import  tqdm
 import  torch
 import  pickle
+import  numpy                       as      np
 import  pandas                      as      pd # type: ignore
 from    sklearn.model_selection     import  train_test_split # type: ignore
 from    torch.utils.data            import  Dataset
-from    typing                      import  List, Dict, Union, Tuple
+from    typing                      import  List, Dict, Union, Tuple, Any
+from    PIL                         import  Image
+from    torchvision                 import  transforms # type: ignore
 
 if __name__ == "__main__":
     from    header                  import  StringListDict, setSeed, DaughterSet_getitem_
     from    DaughterFolderDataset   import  DaughterFolderDataset
+    from    light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
 else:
+    import sys 
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(os.path.abspath(__file__))
+    sys.path.append(__file__)
     from    .header                 import  StringListDict, setSeed, DaughterSet_getitem_
     from    .DaughterFolderDataset  import  DaughterFolderDataset
+    from    .light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
 
 class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
     """
@@ -46,9 +55,7 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
     """
 
     def __init__(self,
-                 resize: Tuple[int, int],
                  dicAddresses: StringListDict ,
-                 extension: str,
                  stride: int = 1,
                  sequence_length: int = 1,  # New parameter for sequence length
                  ) -> None:
@@ -61,16 +68,10 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
 
         """
         setSeed(42)
-        self.resize = resize
         # self.data_dir = data_dir
-        self.extension = extension
         self.stride = stride
         self.sequence_length = sequence_length
         self.dicAddresses = dicAddresses
-
-
-        self.viscosity_data = pd.read_csv("/home/d2u25/Desktop/Main/Projects/Viscosity/DATA_Sheet.csv") # type: ignore
-        self.fluids = self.viscosity_data["Bottle number"]
 
         # Fallback: regenerate from scratch
         self.DaughterSetLoader(self.dicAddresses)
@@ -78,6 +79,141 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
 
         self._MaximumViscosityGetter = self.MaximumViscosityGetter()
         print(f"Maximum viscosity in dataset: {self._MaximumViscosityGetter}")
+
+    def save_cache(self, filepath: str) -> None:
+        """
+        Save a lightweight cache of this MotherFolderDataset to avoid slow re-initialization.
+        
+        The cache contains:
+        - Configuration (dicAddresses, stride, sequence_length)
+        - Precomputed DataAddress lists from each DaughterFolderDataset
+        - Dataset length and maximum viscosity
+        
+        This allows fast loading without re-scanning directories and CSVs.
+        
+        Args:
+            filepath (str): Path where the cache file will be saved (e.g., 'dataset_cache.pkl')
+        """
+        cache: Dict[str, Any] = {
+            'dicAddresses': self.dicAddresses,
+            'stride': self.stride,
+            'sequence_length': self.sequence_length,
+            'maximum_viscosity': self._MaximumViscosityGetter,
+            'len': self._len,
+            'daughter_data': {}
+        }
+        
+        # Extract DataAddress lists from each DaughterFolderDataset
+        for fluid, ds in self.DaughterSets.items():
+            cache['daughter_data'][fluid] = ds.DataAddress
+        
+        with open(filepath, 'wb') as f:
+            pickle.dump(cache, f, protocol=pickle.HIGHEST_PROTOCOL)
+        
+        print(f"Dataset cache saved to: {filepath}")
+
+    @classmethod
+    def load_cache(cls, filepath: str) -> 'MotherFolderDataset':
+        """
+        Quickly reconstruct a MotherFolderDataset from a previously saved cache.
+        
+        This bypasses directory scanning and CSV parsing by reusing saved DataAddress lists.
+        Images are still loaded lazily during __getitem__ calls.
+        
+        Args:
+            filepath (str): Path to the cache file (e.g., 'dataset_cache.pkl')
+            
+        Returns:
+            MotherFolderDataset: Reconstructed dataset ready for use
+        """
+        with open(filepath, 'rb') as f:
+            cache = pickle.load(f)
+        
+        # Create instance without calling __init__
+        self = object.__new__(cls)
+        
+        # Restore attributes
+        self.dicAddresses = cache['dicAddresses']
+        self.stride = cache['stride']
+        self.sequence_length = cache['sequence_length']
+        self.splits = None
+        self._len = cache['len']
+        self._MaximumViscosityGetter = cache['maximum_viscosity']
+        
+        # Reconstruct DaughterSets using cached DataAddress lists
+        from .DaughterFolderDataset import DaughterFolderDataset
+        
+        # Create a prototype to get config-dependent attributes
+        try:
+            proto = DaughterFolderDataset(dirs=[], seq_len=self.sequence_length, stride=self.stride)
+        except:
+            proto = None
+        
+        class _CachedDaughter:
+            """Lightweight replacement for DaughterFolderDataset that reuses cached data"""
+            def __init__(inner_self, dataaddress: list, proto_ref: Any):
+                inner_self.DataAddress = dataaddress
+                inner_self._proto = proto_ref
+            
+            def __len__(inner_self) -> int:
+                return len(inner_self.DataAddress)
+            
+            def dataNormalizer(inner_self, MaxLength: int) -> None:
+                """Match DaughterFolderDataset interface"""
+                import random
+                random.seed(42)
+                random.shuffle(inner_self.DataAddress)
+                inner_self.DataAddress = inner_self.DataAddress[:MaxLength]
+            
+            def __getitem__(inner_self, idx: int) -> Any:
+                """Load images on-demand using cached metadata"""
+                seq: list = []
+                viscosity = inner_self.DataAddress[idx][0]
+                files = inner_self.DataAddress[idx][1]
+                drop_positions = inner_self.DataAddress[idx][2]
+                SROF = inner_self.DataAddress[idx][3]
+                tilt = inner_self.DataAddress[idx][4]
+                count = inner_self.DataAddress[idx][5]
+                
+                for file_path, drop_position in zip(files, drop_positions):
+                    pil = Image.open(file_path).convert("L")
+                    
+                    if not isinstance(pil, np.ndarray):
+                        pil = np.array(pil)
+                    
+                    # Apply reflection removal if configured
+                    if inner_self._proto is not None and inner_self._proto.reflect_remover:
+                        pil = LightSourceReflectionRemover(pil)
+                    
+                    # Apply embedding if configured
+                    if inner_self._proto is not None and inner_self._proto.embed_bool:
+                        if count not in inner_self._proto.embedding_file:
+                            inner_self._proto.embedding_file[count] = inner_self._proto.PE_embedding(size_x=count)
+                        pil = inner_self._proto.image_embedding(pil, drop_position, count)
+                    
+                    if isinstance(pil, np.ndarray):
+                        pil = Image.fromarray(pil.astype(np.uint8))
+                    
+                    # Apply transform
+                    if inner_self._proto is not None:
+                        data = inner_self._proto.transform(pil)
+                    else:
+                        # Fallback transform
+                        data = transforms.ToTensor()(pil)
+                    seq.append(data)
+                
+                seq_tensor = torch.stack(seq)
+                return seq_tensor, torch.tensor(viscosity, dtype=torch.float32), torch.tensor(drop_position, dtype=torch.int16), torch.tensor(SROF, dtype=torch.float32), torch.tensor(tilt, dtype=torch.int16)
+        
+        # Rebuild DaughterSets from cached data
+        self.DaughterSets = {}
+        for fluid, dataaddr in cache['daughter_data'].items():
+            self.DaughterSets[fluid] = _CachedDaughter(dataaddr, proto)
+        
+        print(f"Dataset loaded from cache: {filepath}")
+        print(f"Maximum viscosity in dataset: {self._MaximumViscosityGetter}")
+        
+        return self
 
     def MaximumViscosityGetter(self) -> float:
         maxViscosity = 0.0
@@ -101,12 +237,15 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
 
         kk = tqdm.tqdm(dicAddresses.items())
         for fluid, dirs in kk:
-            kk.set_postfix({f"Loading DaughterSet for fluid: ": ""}) # type: ignore
+            # ## FIXME: temporary fix for S5-SDS99 only
+            # if not "S5-SDS99" in fluid:
+            #     continue
+
+            kk.set_postfix({"Loading DaughterSet for fluid": fluid}) # Updated to show fluid name
             self.DaughterSets[fluid] = DaughterFolderDataset(dirs,
                                                             seq_len=self.sequence_length,
                                                             stride=self.stride,
-                                                            extension=self.extension,
-                                                            resize=self.resize)
+                                                            )
             if self.DaughterSets[fluid].__len__() == 0:
                 if verbose:
                     print(f"Fluid {fluid} with viscosity {fluid} has no images and therefore has no effect on training.")
@@ -197,7 +336,7 @@ def dicLoader(root:Union[None,str, os.PathLike[str]]=None,
     dicAddressesTrain       = pickle.load(open(os.path.join(rootAddress, "dicAddressesTrain.pkl"),       "rb"))
     dicAddressesValidation  = pickle.load(open(os.path.join(rootAddress, "dicAddressesValidation.pkl"),  "rb"))
     dicAddressesTest        = pickle.load(open(os.path.join(rootAddress, "dicAddressesTest.pkl"),        "rb"))
-
+            
     if root is None:
         return dicAddressesTrain, dicAddressesValidation, dicAddressesTest
     
@@ -208,6 +347,9 @@ def dicLoader(root:Union[None,str, os.PathLike[str]]=None,
             if dic[key] is None  or len(dic[key]) == 0:
                 del dic[key]
 
+    for dic in [dicAddressesTrain, dicAddressesValidation, dicAddressesTest]:
+        for key in list(dic.keys()):
+            dic[key] = [os.path.normpath(path) for path in dic[key] if os.path.exists(path)]
     return dicAddressesTrain, dicAddressesValidation, dicAddressesTest
 
 def save_dataset_with_splits(root: str = os.path.join(os.path.dirname(__file__), "dataset_splits"),
@@ -216,7 +358,7 @@ def save_dataset_with_splits(root: str = os.path.join(os.path.dirname(__file__),
     fluidNames: set[str] = set() # type: ignore
     for tilt in glob.glob(os.path.join(DataAddress, "*")):
         for fluid in glob.glob(os.path.join(tilt, "*")):
-            fluidNames.add(os.path.basename(fluid)) # type: ignore
+            fluidNames.add(os.path.basename(fluid.split('_')[0])) # type: ignore
     # breakpoint()
     fluidNames:List[str] = sorted(list(fluidNames))
 
@@ -227,13 +369,14 @@ def save_dataset_with_splits(root: str = os.path.join(os.path.dirname(__file__),
         dicAddressesTrain[fluid] = []
         dicAddressesValidation[fluid] = []
         dicAddressesTest[fluid] = []
-        for SubFluid in glob.glob(os.path.join(DataAddress, "*", fluid)):
+        for SubFluid in glob.glob(os.path.join(DataAddress, "*", f"{fluid}_*")):
 
             Reps = glob.glob(os.path.join(SubFluid, "*"))
+            Reps = [folder for folder in Reps if os.path.isdir(folder)]
             for i, rep in enumerate(Reps):
-                if len(Reps) > 5 and i < 4:
+                if len(Reps) >= 6 and i <= 5:
                     dicAddressesTrain[fluid].append(rep)
-                elif i > 4 and i < 7:
+                elif i > 5 and i < 7:
                     dicAddressesValidation[fluid].append(rep)
                 else:
                     dicAddressesTest[fluid].append(rep)
@@ -290,18 +433,95 @@ def DS_limiter_inv(dataset: StringListDict,
     return _dataset
 
 if __name__ == "__main__":
-    # Example usage
-    # dicAddressesTrain, dicAddressesValidation, dicAddressesTest = dicLoader(root="/media/d2u25/Dont/frames_Process_30",
-    #                                                                         rootAddress="Projects/Viscosity/")
     
+    # # phase 1: create dataset splits and save them
+    # save_dataset_with_splits(DataAddress="/media/d25u2/Dont/Viscosity")
+
+    # Phase 2: Load dataset splits and create MotherFolderDataset instances
+    dicAddressesTrain, dicAddressesValidation, dicAddressesTest = dicLoader(root="/media/d25u2/Dont/Viscosity",)
+
+    # Phase 3a: Create MotherFolderDataset and save cache for fast future loading
+    cache_path = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output/dataset_cache_train.pkl"
+    
+    # Check if cache exists
+    if os.path.exists(cache_path):
+        print("Loading dataset from cache...")
+        dataset = MotherFolderDataset.load_cache(cache_path)
+    else:
+        print("Creating dataset from scratch (this will be slow)...")
+        dataset = MotherFolderDataset(dicAddresses=dicAddressesTrain,
+                                      stride=1,
+                                      sequence_length=5)
+        print("Saving dataset cache for future use...")
+        dataset.save_cache(cache_path)
+    
+    print(f"Dataset ready! Total samples: {len(dataset)}")
+
+
+    cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
+    os.makedirs(cache_dir, exist_ok=True)
+    
+    cache_train = os.path.join(cache_dir, "dataset_cache_train.pkl")
+    cache_val = os.path.join(cache_dir, "dataset_cache_val.pkl")
+    cache_test = os.path.join(cache_dir, "dataset_cache_test.pkl")
+    
+    # Load dataset splits
+    dicAddressesTrain, dicAddressesValidation, dicAddressesTest = dicLoader(
+        root="/media/d25u2/Dont/Viscosity"
+    )
+    
+    # ===== TRAINING DATASET =====
+    if os.path.exists(cache_train):
+        print("Loading TRAINING dataset from cache...")
+        train_dataset = MotherFolderDataset.load_cache(cache_train)
+    else:
+        print("Creating TRAINING dataset from scratch (this will take time)...")
+        train_dataset = MotherFolderDataset(
+            dicAddresses=dicAddressesTrain,
+            stride=1,
+            sequence_length=5
+        )
+        print("Saving training dataset cache...")
+        train_dataset.save_cache(cache_train)
+    
+    # ===== VALIDATION DATASET =====
+    if os.path.exists(cache_val):
+        print("Loading VALIDATION dataset from cache...")
+        val_dataset = MotherFolderDataset.load_cache(cache_val)
+    else:
+        print("Creating VALIDATION dataset from scratch...")
+        val_dataset = MotherFolderDataset(
+            dicAddresses=dicAddressesValidation,
+            stride=1,
+            sequence_length=5
+        )
+        print("Saving validation dataset cache...")
+        val_dataset.save_cache(cache_val)
+    
+    # ===== TEST DATASET =====
+    if os.path.exists(cache_test):
+        print("Loading TEST dataset from cache...")
+        test_dataset = MotherFolderDataset.load_cache(cache_test)
+    else:
+        print("Creating TEST dataset from scratch...")
+        test_dataset = MotherFolderDataset(
+            dicAddresses=dicAddressesTest,
+            stride=1,
+            sequence_length=5
+        )
+        print("Saving test dataset cache...")
+        test_dataset.save_cache(cache_test)
+    
+    # Example: Test loading a sample
+    # sample, label = dataset[0]
+    # print(f"Sample shape: {sample.shape}, Label: {label}")
+
+
+    # print(f"Total samples in training dataset: {len(dataset)}")
     # breakpoint()
     # dicAddressesTrain = DS_limiter_inv(dicAddressesTrain,['S3-SDS01_D', 'S3-SDS10_D','S3-SDS99_D'],['/280/','/285/','/290/','/295/','/300/',])
     # print("Debugging MotherFolderDataset.py")
-    # dataset = MotherFolderDataset(dicAddresses=dicAddressesTrain,
-    #                               extension=".png",
-    #                               stride=1,
-    #                               sequence_length=5)
-    # print(f"Total samples in training dataset: {len(dataset)}")
+    # 
     # sample, label = dataset[0]
     # print(f"Sample shape: {sample.shape}, Label: {label}")
 
@@ -318,7 +538,3 @@ if __name__ == "__main__":
     #%% Debugging DataSetShit
     # dicAddressesTrain, dicAddressesValidation, dicAddressesTest = dicLoader(rootAddress="Projects/Viscosity/",
     #                                                                         root = "/media/d2u25/Dont/frames_Process_30")
-
-
-    save_dataset_with_splits(root="./dataset_splits",
-                             DataAddress="/media/d2u25/Dont/frames_Process_30")
