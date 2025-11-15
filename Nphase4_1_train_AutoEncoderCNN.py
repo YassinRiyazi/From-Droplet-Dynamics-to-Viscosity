@@ -23,12 +23,13 @@ from    torch.utils.data    import  DataLoader
 from    torch.optim         import  Adam, lr_scheduler, AdamW
 from    torchvision.utils   import  save_image
 from    typing              import  Callable, Optional, Tuple, Union
-import  torch.nn.functional as F
-import dataset
-import utils
-
+import  torch.nn.functional as      F
+import  dataset
+import  utils
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../', 'src/PyThon/NeuralNetwork/trainer')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                             '../../../../',
+                                             'src/PyThon/NeuralNetwork/trainer')))
 import deeplearning
 # Set the random seed for reproducibility
 torch.manual_seed(42)
@@ -80,10 +81,42 @@ def handler_selfSupervised_loss(criterion, output, data):
 def handler_selfSupervised(Args:tuple[torch.Tensor, torch.Tensor],
                            criterion: nn.Module,
                            model: nn.Module,
-                           device: torch.device = 'cuda') -> tuple[torch.Tensor, torch.Tensor]:
-    data, output    = handler_selfSupervised_dataHandler(Args, model, device)
-    loss            = handler_selfSupervised_loss(criterion, output, data)
+                           device: torch.device = 'cuda',
+                           additional: Optional[bool] = False) -> tuple[torch.Tensor, torch.Tensor]:
+    Scale = 1
+    Args = [arg.to(device) if arg.dim() <= 4 else arg.squeeze(1).to(device) for arg in Args]
+
+    output = model(Args[0])
+    loss   = criterion(output, Args[0])
+    if additional:
+        mean_error = (output - Args[0]).abs()[Args[1] > 0.01].mean()
+        mean_error = Scale * mean_error.item() / (Args[1] > 0.001).sum()
+
+        loss  += mean_error
     return output, loss
+
+from contextlib import contextmanager
+import types
+
+@contextmanager
+def temporary_method(obj, method_name, new_method):
+    """
+    Temporarily replace obj.method_name with new_method.
+
+    Works for class or instance methods.
+    """
+    old_method = getattr(obj, method_name)
+
+    # bind method correctly (so `self` works)
+    bound_new_method = types.MethodType(new_method, obj)
+    setattr(obj, method_name, bound_new_method)
+
+    try:
+        yield   # run code under patch
+    finally:
+        # restore original
+        setattr(obj, method_name, old_method)
+
 
 def save_reconstructions(
                          model: nn.Module,
@@ -93,7 +126,7 @@ def save_reconstructions(
                          epoch: int,
                          dataHandler: Callable = handler_selfSupervised_dataHandler,
                          num_samples: int = 8,
-                         _shuffle: bool = False) -> None:
+                         _shuffle: bool = False,) -> None:
     """
     Save a batch of original and reconstructed images from the dataloader.
     Args:
@@ -112,11 +145,29 @@ def save_reconstructions(
         - randperm disturb the order of data,
     """
     """Save batches of originals and their corresponding reconstructions (order preserved)."""
+    Scale = 1
     model.eval()
     os.makedirs(save_dir, exist_ok=True)
     with torch.no_grad():
         for i, Args in enumerate(dataloader):
-            _, recon = dataHandler(Args, model, device)
+            
+            # _, recon = dataHandler(Args, model, device)
+            Args = [arg.to(device) if arg.dim() <= 4 else arg.squeeze(1).to(device) for arg in Args]
+            recon = model(Args[0])
+
+            mean_error = (recon - Args[0]).abs()[Args[1] > 0.01].mean()
+            mean_error = Scale * mean_error.item() / (Args[1] > 0.001).sum()
+
+            if mean_error > 0.50:
+                p = 0.5  # Cap the mean error to avoid extreme adjustments
+            elif mean_error < 0:
+                p = 0.05
+            else:
+                p = mean_error
+            
+            model.dropout.p = p
+            print(f"Mean reconstruction error (reflection areas): {mean_error:.6f}, Adjusted Dropout p: {model.dropout.p:.2f}")
+            
             # Take only the first num_samples
             originals = Args[0][:num_samples]
 
@@ -130,88 +181,62 @@ def save_reconstructions(
             reconstructions = recon[rand_indices]
             originals = originals.squeeze(1)  # Remove channel dimension if present
             # Save originals and reconstructions
+            if originals.size(1) != 1:
+                originals = originals.unsqueeze(1)
+            if reconstructions.size(1) != 1:
+                reconstructions = reconstructions.unsqueeze(1)
             save_image(originals,       os.path.join(save_dir, f'originals_epoch{epoch}_batch{i}.png'),         nrow=num_samples)
             save_image(reconstructions, os.path.join(save_dir, f'reconstructions_epoch{epoch}_batch{i}.png'),   nrow=num_samples)
+                
             if i >= 5:  # Limit to first 5 batches
                 break  # Only process the 5 batch
 
 def trainer(
-    _case: str,
-    model_name: str,
-    epochs: int,
-    batch_size: int,
-    learning_rate: float,
-    stride: int,
     embedding_dim: int = 1024,
     ckpt_save_path: str = os.path.join(os.path.dirname(__file__), 'checkpoints'),
-    report_path: str = os.path.join(os.path.dirname(__file__), 'training_report.csv'),
+    report_path: str = os.path.join(os.path.dirname(__file__),'Output', 'training_report.csv'),
     ckpt_path: str|None = None,
-    use_hard_negative_mining: bool = False,
     AElayers: int = 9,
-    hard_mining_freq: int = 2,
-    num_hard_samples: int = 1000,
-    sequence_length: int = 1,
-    ckpt_save_freq: int = 3,
-    device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
-    DropOut: bool = True,
+
+    use_hard_negative_mining:   bool    = utils.config['Training']['hard_negative_mining'],
+    hard_mining_freq:           int     = utils.config['Training']['hard_mining_freq'],
+    num_hard_samples:           int     = 1000,
+    ckpt_save_freq:             int     = utils.config['Training']['checkpoint_save_freq'],
+    device: str                         = 'cuda' if torch.cuda.is_available() else 'cpu',
+    DropOut:                    bool    = utils.config['Training']['Constant_feature_AE'].get('DropOut', False)
 ):
     
-    Ref = True
-    if  _case == "default":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30'
-        
-    elif    _case == "NoRef":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30_LightSource'
-        Ref         = False
-
-    elif    _case == "Position":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30_Position'
-
-    elif    _case == "Velocity":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30_Velocity'
-        # data_dir    = '/media/d2u25/Dont/frames_Process_30_Velocity_P540'
-
-    elif    _case == "Velocity_wide":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30_Velocity_wide'
-
-    elif    _case == "Position_wide":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30_Position_wide'
-
-    elif    _case == "default_cropped":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30_cropped'
-
-    else:   raise ValueError(f"Unknown case: {_case}")
-
-    if model_name == 'Autoencoder_CNNV1_0':
-        if 'wide' in str.lower(_case):
-            raise NotImplementedError("Autoencoder_CNNV1_0 doesn't support wide images.")
+    if utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_CNNV1_0':
         ImageSize: Tuple[int, int] = (201,201)
-        model = networks.Autoencoder_CNNV1_0(embedding_dim = embedding_dim).to(device)
-        model_name = f"CNN_AE_{AElayers}_{model_name}_{_case}_{embedding_dim}_{Ref=}"
-    elif model_name == 'Autoencoder_CNNV2_0':
+        model = networks.Autoencoder_CNNV1_0(DropOut = utils.config['Training']['Constant_feature_AE']["DropOut"],#.get('DropOut', True),
+                                             embedding_dim = embedding_dim).to(device)
+
+    elif utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_CNNV2_0':
         ImageSize: Tuple[int, int] = (256,1024)
         model = networks.Autoencoder_CNNV2_0(num_blocks=AElayers,#num_blocks=8,
                                                     Image=ImageSize).to(device)
-        model_name = f"CNN_AE_{AElayers}_{model_name}_{_case}_{Ref=}"
     else:
-        raise ValueError(f"Unknown model name: {model_name}")
+        raise ValueError(f"Unknown model name: {utils.config['Training']['Constant_feature_AE']['Architecture']}")
     
     model.DropOut = DropOut
+    _case   = utils.config['Dataset']['embedding']['positional_encoding']
+    Ref     = utils.config['Dataset']['reflection_removal']
     
 
-    dicAddressesTrain, dicAddressesValidation, dicAddressesTest = DSS.dicLoader(root = data_dir)
+    dicAddressesTrain, dicAddressesValidation, dicAddressesTest = DSS.dicLoader(root = utils.config['Dataset']['Dataset_Root'],)
     del dicAddressesTest
     
     ###################################
     ###################################
     cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
     os.makedirs(cache_dir, exist_ok=True)
-    ID = f"s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
+    ID = ID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
+
     cache_train = os.path.join(cache_dir, f"dataset_cache_train_{ID}.pkl")
     cache_val = os.path.join(cache_dir, f"dataset_cache_val_{ID}.pkl")
     # cache_test = os.path.join(cache_dir, f"dataset_cache_test.pkl")
     
-    
+    model_name = f"CNN_AE_{AElayers}_{utils.config['Training']['Constant_feature_AE']['Architecture']}_{_case}_{embedding_dim}_{Ref=}_{ID}"
     # ===== TRAINING DATASET =====
     if os.path.exists(cache_train):
         print("Loading TRAINING dataset from cache...")
@@ -242,23 +267,35 @@ def trainer(
         val_dataset.save_cache(cache_val)
 
 
+    ###################################
+    train_dataset.reflectionReturn_Setter(True)
+    val_dataset.reflectionReturn_Setter(True)
+    ###################################
+
     # Optimize DataLoader
     train_loader    = DataLoader(train_dataset, batch_size=utils.config['Training']['batch_size'], 
                                  num_workers=utils.config['Training']['num_workers'], shuffle=True, pin_memory=True)
     val_loader      = DataLoader(val_dataset, batch_size=utils.config['Training']['batch_size'], 
                                  num_workers=utils.config['Training']['num_workers'], shuffle=False, pin_memory=True)
 
-    optimizer       = AdamW(model.parameters(), lr=learning_rate, 
-                            weight_decay=1e-4
+    optimizer       = AdamW(model.parameters(), 
+                            lr=float(utils.config['Training']['learning_rate']), 
+                            weight_decay=float(utils.config['Training']['weight_decay'])
                             )
+
     criterion       = nn.MSELoss()
 
     # Learning rate scheduler, If optimizer is AdamW skipping scheduler
     scheduler   = None
     if isinstance(optimizer, AdamW):
+        pass
         # scheduler   = lr_scheduler.ExponentialLR(optimizer, gamma=0.85)  # Divide by 5 every epoch 0.2
     else:
         scheduler   = lr_scheduler.ExponentialLR(optimizer, gamma=0.85)  # Divide by 5 every epoch 0.2
+
+
+
+    
 
     # Train the model
     model, optimizer, report = deeplearning.train(
@@ -270,7 +307,7 @@ def trainer(
 
         criterion=criterion,
         optimizer=optimizer,
-        epochs=epochs,
+        epochs=utils.config['Training']['num_epochs'],
         device=device,
         model_name=model_name,
         handler=handler_selfSupervised,
@@ -283,32 +320,20 @@ def trainer(
         use_hard_negative_mining=use_hard_negative_mining,
         hard_mining_freq=hard_mining_freq,
         num_hard_samples=num_hard_samples,
-        new_lr=learning_rate,
+        new_lr=float(utils.config['Training']['learning_rate']),
     )
 
     
 if __name__ == '__main__':
     AElayers = 9
-    stride   = 4#32#4
-    DropOut = True
+    
+    for _case in ['Position', 'Velocity']:
+        utils.config['Dataset']['embedding']['positional_encoding'] = _case
 
-   
-
-    for _case in ["default_cropped",]:
-        for embedding_dim in [128,]: #, 1024*4, 1024*8
-
+        for embedding_dim in ([128,1024]): #, 1024*4, ,1024*8
             trainer(
-                _case=_case,
-                model_name=f'Autoencoder_CNNV1_0',
-                epochs=40,
-                batch_size=8,
-                learning_rate=0.001, #1e-5,#0.001,#0.01,
                 embedding_dim=embedding_dim,
-                ckpt_save_freq=30,
-                ckpt_save_path=os.path.join(os.path.dirname(__file__), 'checkpoints'),
+                ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints'),
                 ckpt_path=None,
-                report_path=os.path.join(os.path.dirname(__file__), 'training_report.csv'),
-                use_hard_negative_mining=False,
-                stride=stride,
-                DropOut = DropOut,
+                report_path=os.path.join(os.path.dirname(__file__),'Output', 'training_report.csv'),
             )

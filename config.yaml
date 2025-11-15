@@ -12,6 +12,7 @@ super_resolution_cropped : 'databases_SR'
 SROF: 'result.csv' #'result_2Pass_corrected.csv'
 
 Dataset:
+  Dataset_Root          : '/media/d25u2/Dont/Viscosity' # base path to the dataset
   wide                  : False # using the full landscape images or only cropped droplets
   super_resolution      : False  # whether to use super-resolution cropped images
   resize: {
@@ -32,10 +33,16 @@ Dataset:
 
 Training:
   batch_size            : 16
-  num_workers           : 8
-  learning_rate         : 0.0001
-  weight_decay          : 0.00001
-  num_epochs            : 200
+  num_workers           : 16
+  learning_rate         : 1e-4
+  weight_decay          : 1e-5
+  num_epochs            : 30
+  checkpoint_save_freq  : 5
+  hard_negative_mining  : False
+  hard_mining_freq      : 2
   Constant_feature_AE:
-    Stride: 10
+    Stride: 10 #10
     window_Lenght: 1
+    Architecture: 'Autoencoder_CNNV1_0'
+    Valid_architectures: ['Autoencoder_CNNV1_0', 'Autoencoder_CNNV2_0',]
+    DropOut: True

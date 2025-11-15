@@ -94,7 +94,7 @@ class Decoder_CNN(nn.Module):
         return x
 
 class Autoencoder_CNN(nn.Module):
-    def __init__(self,
+    def __init__(self,DropOut: bool ,
                  embedding_dim: int = 100) -> None:
         """
         Initializes the autoencoder network.
@@ -109,7 +109,7 @@ class Autoencoder_CNN(nn.Module):
         self.encoder = Encoder_CNN(embedding_dim)
         self.decoder = Decoder_CNN(embedding_dim)
 
-        self.DropOut = False
+        self.DropOut = DropOut
         # Change dropout probability after initialization
         # print("Before:", model.dropout.p)
         # model.dropout.p = 0.2

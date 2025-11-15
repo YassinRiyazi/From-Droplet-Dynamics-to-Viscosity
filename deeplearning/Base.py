@@ -153,9 +153,14 @@ def create_save_dir(base_path: Union[str, os.PathLike[str]], model_name: str) ->
     """
     Create a timestamped directory for saving model checkpoints and reports
     """
+    import shutil
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     save_dir = os.path.join(base_path, f"{model_name}_{timestamp}")
     os.makedirs(save_dir, exist_ok=True)
+
+    shutil.copyfile('/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/config.yaml',
+                    os.path.join(save_dir, f'config.yaml'))
+    
     return save_dir
 
 def save_model(file_path: str,
@@ -402,7 +407,7 @@ def train(
 
         for batch_idx, Args in enumerate(train_loop):
             optimizer.zero_grad()
-            output, loss = handler(Args, criterion, model)
+            output, loss = handler(Args, criterion, model, additional=True, device=device)
             del output  # Free up memory
             loss.backward()
             optimizer.step()

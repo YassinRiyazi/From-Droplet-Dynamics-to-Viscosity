@@ -294,6 +294,11 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
                 return Data[0], Data[1]/self._MaximumViscosityGetter 
             idx -= len(dataset)
         raise IndexError(f"Index {idx} out of range after traversing all DaughterSets.")
+    
+    def reflectionReturn_Setter(self,state: bool) -> None:
+        for dataset in self.DaughterSets.values():
+            dataset.ReturnReflection = state
+
 
 def split_dataset(dataset: MotherFolderDataset,
                   train_size: float = 0.7,
@@ -451,7 +456,7 @@ if __name__ == "__main__":
 
     cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
     os.makedirs(cache_dir, exist_ok=True)
-    ID = f"s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
+    ID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
     cache_train = os.path.join(cache_dir, f"dataset_cache_train_{ID}.pkl")
     cache_val = os.path.join(cache_dir, f"dataset_cache_val_{ID}.pkl")
     # cache_test = os.path.join(cache_dir, f"dataset_cache_test.pkl")

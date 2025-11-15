@@ -190,6 +190,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             transforms.ToTensor(), #Converts a PIL Image or numpy.ndarray (H x W x C) in the range [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0] 
             # transforms.Normalize((0.5,), (0.5,)),
         ])
+        self.ReturnReflection = False
 
     def PE_embedding(self,
                      size_x: int,) -> NDArray[np.uint8] | None:       
@@ -283,6 +284,12 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         return len(self.DataAddress)
 
     def __getitem__(self, idx:int) -> DaughterSet_getitem_:
+        if self.ReturnReflection:
+            return self.getitem_Reflection(idx)
+        else:
+            return self.__getitem__Normal(idx)
+
+    def __getitem__Normal(self, idx:int) -> DaughterSet_getitem_:
         seq: list[torch.Tensor] = []
         
         viscosity       = self.DataAddress[idx][0]
@@ -307,11 +314,81 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
 
             data = self.transform(pil)
             seq.append(data)
-        # Wrap NumPy array into Torch tensor without copying
+
         seq_tensor = torch.stack(seq)
-        print(f"address {self.DataAddress[idx][1]} Dataset __getitem__ at index {idx}")
         return seq_tensor, torch.tensor(viscosity, dtype=torch.float32), torch.tensor(drop_position, dtype=torch.int16), torch.tensor(SROF, dtype=torch.float32), torch.tensor(tilt, dtype=torch.int16)
     
+    def getitem_Reflection(self, idx:int) -> tuple[torch.Tensor, torch.Tensor]:
+            seq: list[torch.Tensor] = []
+            seq_reflection: list[torch.Tensor] = []
+            
+            # viscosity       = self.DataAddress[idx][0]
+            # SROF            = self.DataAddress[idx][3]
+            # tilt            = self.DataAddress[idx][4]
+            count           = self.DataAddress[idx][5]
+
+            for file_path, drop_position in zip(self.DataAddress[idx][1],self.DataAddress[idx][2]):
+                pil = Image.open(file_path).convert("L")
+                pil_temp = pil.copy()
+
+                if isinstance(pil, np.ndarray)==False:
+                    pil = np.array(pil)
+                    pil_temp = np.array(pil_temp)
+
+                pil_temp = LightSourceReflectionRemover(pil_temp)
+
+                if self.embed_bool:
+                    pil = self.image_embedding(pil, drop_position, count)
+                    pil_temp = self.image_embedding(pil_temp, drop_position, count)
+
+                if isinstance(pil, np.ndarray):
+                    pil = Image.fromarray(pil.astype(np.uint8))
+                    pil_temp = Image.fromarray(pil_temp.astype(np.uint8))
+
+                data = self.transform(pil)
+                seq.append(data)
+
+                pil_temp = self.transform(pil_temp)
+                _temp = data - pil_temp
+                _temp = _temp.squeeze(0).numpy()
+                _temp = self.reflection_detection(_temp)
+                _temp = torch.tensor(_temp, dtype=torch.float32).unsqueeze(0)
+                seq_reflection.append(_temp)
+
+            # Wrap NumPy array into Torch tensor without copying
+            seq_tensor = torch.stack(seq)
+            seq_reflection_tensor = torch.stack(seq_reflection)
+            return seq_tensor, seq_reflection_tensor
+    
+
+    def reflection_detection(self, img_u8:NDArray[np.float32]) -> NDArray[np.int8]:
+        img_u8 = cv2.normalize(img_u8, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+        # --- 1. Threshold to extract dark spot ---
+        _, thresh = cv2.threshold(img_u8, 80, 255, cv2.THRESH_BINARY_INV)
+
+        # --- 2. Find contours ---
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # --- 3. Select smallest dark contour ---
+        min_area = float("inf")
+        smallest_cnt = None
+
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if 5 < area < min_area:   # skip tiny noise
+                min_area = area
+                smallest_cnt = cnt
+
+        # --- 4. Create mask ---
+        mask = np.zeros_like(img_u8)
+        if smallest_cnt is not None:
+            cv2.drawContours(mask, [smallest_cnt], -1, 255, -1)
+
+        spot = cv2.bitwise_and(img_u8, img_u8, mask=mask)
+        return spot
+    
+
     def checkingFilesExist(self, 
                            files:List[str],
                            dropLocation: pd.DataFrame,
@@ -448,11 +525,15 @@ if __name__ == "__main__":
     plt.axis('off')  # Hide axis
     plt.show()  
 
-
-    cc = vv[318]
+    vv.ReturnReflection = True
+    cc = vv[317]
     print(cc[0].shape,vv.__len__())
     # plotting a tensor image
     img = cc[0][0].squeeze().numpy()  # Remove channel dimension
     plt.imshow(img, cmap='gray')
     plt.axis('off')  # Hide axis
     plt.show()  
+    img = cc[1][0].squeeze().numpy()  # Remove channel dimension
+    plt.imshow(img, cmap='gray')
+    plt.axis('off')  # Hide axis
+    plt.show()
