@@ -13,20 +13,20 @@
     
 
 """
+# import  glob
+# import  dataset
+# import  dataset             as      DSS
 import  os
-import  glob
+import  sys
 import  torch
+import  utils
 import  networks
 import  torch.nn            as      nn
-import  dataset             as      DSS
 from    torch.utils.data    import  DataLoader
 from    torch.optim         import  Adam, lr_scheduler, AdamW
 from    torchvision.utils   import  save_image
 from    typing              import  Callable, Optional, Tuple, Union
 import  torch.nn.functional as      F
-import  dataset
-import  utils
-import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              '../../../../',
                                              'src/PyThon/NeuralNetwork/trainer')))
@@ -116,7 +116,6 @@ def temporary_method(obj, method_name, new_method):
     finally:
         # restore original
         setattr(obj, method_name, old_method)
-
 
 def save_reconstructions(
                          model: nn.Module,
@@ -219,58 +218,15 @@ def trainer(
         raise ValueError(f"Unknown model name: {utils.config['Training']['Constant_feature_AE']['Architecture']}")
     
     model.DropOut = DropOut
-    _case   = utils.config['Dataset']['embedding']['positional_encoding']
-    Ref     = utils.config['Dataset']['reflection_removal']
-    
-
-    dicAddressesTrain, dicAddressesValidation, dicAddressesTest = DSS.dicLoader(root = utils.config['Dataset']['Dataset_Root'],)
-    del dicAddressesTest
-    
-    ###################################
-    ###################################
-    cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
-    os.makedirs(cache_dir, exist_ok=True)
-    ID = ID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
-
-    cache_train = os.path.join(cache_dir, f"dataset_cache_train_{ID}.pkl")
-    cache_val = os.path.join(cache_dir, f"dataset_cache_val_{ID}.pkl")
-    # cache_test = os.path.join(cache_dir, f"dataset_cache_test.pkl")
-    
-    model_name = f"CNN_AE_{AElayers}_{utils.config['Training']['Constant_feature_AE']['Architecture']}_{_case}_{embedding_dim}_{Ref=}_{ID}"
-    # ===== TRAINING DATASET =====
-    if os.path.exists(cache_train):
-        print("Loading TRAINING dataset from cache...")
-        train_dataset = dataset.MotherFolderDataset.load_cache(cache_train)
-    else:
-        print("Creating TRAINING dataset from scratch (this will take time)...")
-        train_dataset = dataset.MotherFolderDataset(
-            dicAddresses=dicAddressesTrain,
-            stride=utils.config['Training']['Constant_feature_AE']['Stride'],
-            sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
-        )
-        print("Saving training dataset cache...")
-        train_dataset.save_cache(cache_train)
-    
-    # ===== VALIDATION DATASET =====
-
-    if os.path.exists(cache_val):
-        print("Loading VALIDATION dataset from cache...")
-        val_dataset = dataset.MotherFolderDataset.load_cache(cache_val)
-    else:
-        print("Creating VALIDATION dataset from scratch...")
-        val_dataset = dataset.MotherFolderDataset(
-            dicAddresses=dicAddressesValidation,
-            stride=utils.config['Training']['Constant_feature_AE']['Stride'],
-            sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
-        )
-        print("Saving validation dataset cache...")
-        val_dataset.save_cache(cache_val)
-
-
-    ###################################
-    train_dataset.reflectionReturn_Setter(True)
-    val_dataset.reflectionReturn_Setter(True)
-    ###################################
+   
+    _Ds = utils.data_set()
+    _Ds.load_addresses()
+    train_dataset, val_dataset = _Ds.load_datasets(embedding_dim=embedding_dim,
+                                                   stride=utils.config['Training']['Constant_feature_AE']['Stride'],
+                                                  sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
+                                                  )
+    train_dataset, val_dataset = _Ds.reflectionReturn_Setter(flag=True)
+    model_name = _Ds.model_name
 
     # Optimize DataLoader
     train_loader    = DataLoader(train_dataset, batch_size=utils.config['Training']['batch_size'], 
@@ -327,13 +283,13 @@ def trainer(
 if __name__ == '__main__':
     AElayers = 9
     
-    for _case in [ 'Velocity']:
+    for _case in utils.config['Dataset']['embedding']['Valid_encoding']:
         utils.config['Dataset']['embedding']['positional_encoding'] = _case
 
-        for embedding_dim in ([1024]): #, 1024*4, ,1024*8, 128
+        for embedding_dim in ([128,1024]): #, 1024*4, ,1024*8, 128
             trainer(
                 embedding_dim=embedding_dim,
-                ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints'),
+                ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints','AE_CNN'),
                 ckpt_path=None,
-                report_path=os.path.join(os.path.dirname(__file__),'Output', 'training_report.csv'),
+                report_path=os.path.join(os.path.dirname(__file__),'Output','AE_CNN', 'training_report.csv'),
             )

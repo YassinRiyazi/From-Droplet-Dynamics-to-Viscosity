@@ -6,6 +6,7 @@
     Changelog:
         - 04-08-2025: Initial version. 
         - 17-11-2025: Update to new be adaptible with the congig file structure.
+                        Added dataset in utils to load datasets.
         
 
     TODO:
@@ -39,7 +40,8 @@ torch.set_float32_matmul_precision('high')
 
 def handler_supervised(Args:tuple[torch.Tensor, torch.Tensor],
                        criterion: nn.Module,
-                       model: nn.Module):
+                       model: nn.Module,
+                       **kwargs) -> tuple[torch.Tensor, torch.Tensor]:
     """
     This function is a placeholder for handling supervised training.
     It can be extended to include specific logic for supervised learning tasks.
@@ -95,7 +97,6 @@ def save_reconstructions(
             if i >= 5:  # Limit to first 5 batches
                 break  # Only process the 5 batch
 
-
 def train_lstm_model(
                      _case:str,
                      ImageSize:Tuple[int, int],
@@ -106,61 +107,36 @@ def train_lstm_model(
                      SEQUENCE_LENGTH:int = utils.config['Training']['window_Lenght'],
                      hidden_dim:int = 256,
                      Autoencoder_CNN: torch.nn.modules = None) -> None:
+  
+    _Ds = utils.data_set()
+    _Ds.load_addresses()
+    train_set, val_set = _Ds.load_datasets(embedding_dim=proj_dim)
 
+    _case   = utils.config['Dataset']['embedding']['positional_encoding']
+    Ref     = utils.config['Dataset']['reflection_removal']
+    ID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Stride']}_w{utils.config['Training']['window_Lenght']}"
+    model_name_AE = f"CNN_AE_{utils.config['Training']['Constant_feature_AE']['AutoEncoder_layers']}_{utils.config['Training']['Constant_feature_AE']['Architecture']}_{_case}_{proj_dim}_{Ref=}_{ID}"
+    if len(glob.glob(f'Output/checkpoints/*{model_name_AE}*/*.pt')) == 1 :
+        AE_Address = sorted(glob.glob(f'Output/checkpoints/*{model_name_AE}*/*.pt'))[0]
+    else:
+        raise ValueError(f"Expected exactly one checkpoint for case '{model_name_AE}', but found {len(glob.glob(f'Output/checkpoints/*{model_name_AE}*/*.pt'))}.")
     
-    if 'wide' in str.lower(_case):
-        if ImageSize[1] != 1024 and ImageSize[0] != 256:
-            raise ValueError("For wide cases, ImageSize width must be 1024")
-        if LSTMEmbdSize != 16384:
-            raise ValueError("For wide cases, LSTMEmbdSize must be 16384")
-    
+
+
     model = networks.AutoEncoder_CNN_LSTM.Encoder_LSTM(
-        address_autoencoder= glob.glob(f'/home/d2u25/Desktop/Main/Projects/Viscosity/P2NeuralNetwork/Nphase4_AutoEncoder/checkpoints/*{_case}*/*.pt')[0],
-        proj_dim=proj_dim,  # Adjust based on your data
-        LSTMEmbdSize=LSTMEmbdSize,
-        hidden_dim=hidden_dim,  # Adjust based on your model architecture
-        num_layers=2,  # Number of LSTM layers
-        dropout=0.3,  # Dropout rate
-        sequence_length=SEQUENCE_LENGTH,
-        Autoencoder_CNN=Autoencoder_CNN,
+        address_autoencoder = AE_Address,
+        proj_dim            = proj_dim,  # Adjust based on your data
+        LSTMEmbdSize        = LSTMEmbdSize,
+        hidden_dim          = hidden_dim,  # Adjust based on your model architecture
+        num_layers          = utils.config['Training']['Constant_feature_LSTM']['Num_layers'],  # Number of LSTM layers
+        dropout             = utils.config['Training']['Constant_feature_LSTM']['DropOut'],  # Dropout rate
+        sequence_length     = utils.config['Training']['window_Lenght'],
+        Autoencoder_CNN     = Autoencoder_CNN,
     )
-    
-    dicAddressesTrain, dicAddressesValidation, dicAddressesTest = DSS.dicLoader(root = data_dir)
-    del dicAddressesTest
-    ###################################
-    ###################################
-    # fluid_Constraints: list[str]= []
-    # tilt_Exclusion: list[str]   = []# ,'/285/','/290/','/295/','/300/'
-    # Sorted_fluid = ['S3-SDS10_D+0.8797 mPa.s', 'S3-SDS01_D+0.8797 mPa.s', 'S3-Water_D+0.8797 mPa.s', 'S3-Water_nD+0.8797 mPa.s', 'S2-SNr2.1_D+2.5426 mPa.s', 'S2-SNr2.14_D+2.5426 mPa.s', 'S3-SNr3.01_D+2.5681 mPa.s', 'S3-50Per_D+5.7695 mPa.s', 'S3-SNr3.02_D+13.5901 mPa.s', 'S3-70Per_D+17.4963 mPa.s', 'S2-SNr2.5_D+19.9383 mPa.s', 'S3-SNr3.03_D+24.0283 mPa.s', 'S3-SNr2.6_D+24.0722 mPa.s', 'S3-SNr2.7_D+28.1570 mPa.s', 'S2-SNr2.9_D+36.3760 mPa.s', 'S3-80Per_D+38.1382 mPa.s', 'S3-SNr3.04_D+44.5447 mPa.s', 'S3-SNr3.05_D+54.9317 mPa.s', 'S3-SNr3.06_D+65.1178 mPa.s', 'S3-SNr3.07_D+75.2828 mPa.s', 'S3-SNr3.08_D+84.6743 mPa.s']
-    # # 'S3-SDS99_D+0.8797 mPa.s',, 'S3-SNr3.12_D+124.1283 mPa.s', 'S3-90Per_D+142.4221 mPa.s'
-    # for fluid in Sorted_fluid[::2]: #Sorted_fluid:
-    #     fluid = fluid.split('+')[0]
-    #     fluid_Constraints.append(fluid)
 
-
-    # dicAddressesTrain           = DSS.DS_limiter(dicAddressesTrain,fluid_Constraints,tilt_Exclusion)
-    # dicAddressesValidation      = DSS.DS_limiter_inv(dicAddressesValidation,fluid_Constraints,tilt_Exclusion)
-    ###################################
-    ###################################
-    # Load dataset
-    train_set = DSS.MotherFolderDataset(
-                                        resize=ImageSize,
-                                        dicAddresses = dicAddressesTrain,
-                                        stride=skip,
-                                        sequence_length=SEQUENCE_LENGTH,
-                                        extension=".png"
-                                    )
-
-    val_set = DSS.MotherFolderDataset(
-                                        resize=ImageSize,
-                                        dicAddresses = dicAddressesValidation,
-                                        stride=skip,
-                                        sequence_length=SEQUENCE_LENGTH,
-                                        extension=".png"
-                                    )
 
     # Optimize DataLoader
-    batch_size = utils.config['Training']['Batch_size']
+    batch_size = utils.config['Training']['batch_size']
     if sys.platform == 'linux':
         num_workers = utils.config['Training']['num_workers']
     elif sys.platform == 'win32':
@@ -177,8 +153,8 @@ def train_lstm_model(
     # optimizer = optim.SGD(model.parameters(), lr=1e-2,)
 
     optimizer = torch.optim.AdamW(model.parameters(),
-                                  lr            = utils.config['Training']['learning_rate'],
-                                  weight_decay  = utils.config['Training']['weight_decay']
+                                  lr            = float(utils.config['Training']['learning_rate']),
+                                  weight_decay  = float(utils.config['Training']['weight_decay'])
                                   )
     criterion = nn.MSELoss()
     
@@ -202,9 +178,9 @@ def train_lstm_model(
         handler = handler_supervised,
         handler_postfix=save_reconstructions,
 
-        ckpt_save_path=os.path.join(os.path.dirname(__file__), 'checkpoints'),
+        ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints','LSTM'),
         ckpt_path=None,
-        report_path=os.path.join(os.path.dirname(__file__), 'training_report.csv'),
+        report_path=os.path.join(os.path.dirname(__file__),'Output','LSTM', 'training_report.csv'),
 
         lr_scheduler = lr_scheduler,
         epochs                  = utils.config['Training']['num_epochs'],
@@ -216,19 +192,17 @@ def train_lstm_model(
 
 if __name__ == "__main__":
       
-    skip = 4
     ImageSize: Tuple[int, int] = (201,201)
-    LSTMEmbdSize = 512
-    proj_dim = LSTMEmbdSize
-    Autoencoder_CNN = networks.AutoEncoder_CNNV1_0.Autoencoder_CNN
+    proj_dim = 1024
+    LSTMEmbdSize = proj_dim
+    Autoencoder_CNN = networks.Autoencoder_CNNV1_0
     
     
     
     for case in ['Velocity']:
         for hidden_dim in [256]:
-            train_lstm_model(SEQUENCE_LENGTH=utils.config['Training']['window_Lenght'],
+            train_lstm_model(
                              hidden_dim=hidden_dim,
-                             skip=skip,
                              _case=case,
                              ImageSize=ImageSize,
                              LSTMEmbdSize=LSTMEmbdSize,

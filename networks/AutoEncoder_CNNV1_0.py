@@ -94,7 +94,7 @@ class Decoder_CNN(nn.Module):
         return x
 
 class Autoencoder_CNN(nn.Module):
-    def __init__(self,DropOut: bool ,
+    def __init__(self,DropOut: bool = False ,
                  embedding_dim: int = 100) -> None:
         """
         Initializes the autoencoder network.

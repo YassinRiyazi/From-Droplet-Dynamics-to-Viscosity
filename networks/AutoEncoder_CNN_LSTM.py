@@ -184,8 +184,11 @@ class Encoder_LSTM(torch.nn.Module):
         Returns:
             None: Loads the autoencoder model.
         """
-        self.autoencoder = Autoencoder_CNN(self.proj_dim).to(self.device)
+        self.autoencoder = Autoencoder_CNN(embedding_dim = self.proj_dim).to(self.device)
         self.autoencoder.eval()
-        self.autoencoder.load_state_dict(torch.load(address_autoencoder, map_location=self.device))
+        if os.path.isfile(address_autoencoder):
+            self.autoencoder.load_state_dict(torch.load(address_autoencoder, map_location=self.device))
+        else:
+            raise FileNotFoundError(f"Autoencoder model file not found at {address_autoencoder}")
         # self.autoencoder.requires_grad_(False)
         return None
