@@ -19,9 +19,7 @@ import  torch.optim         as      optim
 from    torch.utils.data    import  DataLoader
 from    typing              import  Callable, Optional, Union
 
-import  sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../', 'src/PyThon/NeuralNetwork/trainer')))
-from Base import train
+import utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -94,10 +92,10 @@ def save_reconstructions(
 
 def train_lstm_model(CnnAutoEncoderEmbdSize = 256,
                      SEQUENCE_LENGTH = 20,
-                     hidden_dim=256,
+                     hidden_dim = utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
                      stride=4,
                      epochs = 5,
-                     GPU_temperature = 67,
+                     GPU_temperature =  utils.config['Training']['GPU_temperature'],
                      data_dir    = '/media/d2u25/Dont/frames_Process_15_Patch') -> None:
     """
     This function is a placeholder for training the LSTM model.

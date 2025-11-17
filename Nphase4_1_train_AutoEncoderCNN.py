@@ -327,10 +327,10 @@ def trainer(
 if __name__ == '__main__':
     AElayers = 9
     
-    for _case in ['Position', 'Velocity']:
+    for _case in [ 'Velocity']:
         utils.config['Dataset']['embedding']['positional_encoding'] = _case
 
-        for embedding_dim in ([128,1024]): #, 1024*4, ,1024*8
+        for embedding_dim in ([1024]): #, 1024*4, ,1024*8, 128
             trainer(
                 embedding_dim=embedding_dim,
                 ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints'),

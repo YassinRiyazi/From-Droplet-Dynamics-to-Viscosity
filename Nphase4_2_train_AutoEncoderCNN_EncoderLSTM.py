@@ -3,12 +3,18 @@
     Date:           04-08-2025
     Description:    Train an embedding-based LSTM for time series data.
 
+    Changelog:
+        - 04-08-2025: Initial version. 
+        - 17-11-2025: Update to new be adaptible with the congig file structure.
+        
+
     TODO:
-        - 
+        - imtegrate the df to the LSTM training pipeline.
 
 """
 import  os
-import  glob 
+import  glob
+import sys 
 import  torch
 import  networks
 import  dataset             as      DSS
@@ -16,17 +22,17 @@ import  torch.nn            as      nn
 import  torch.optim         as      optim
 from    torch.utils.data    import  DataLoader
 from    typing              import  Callable, Optional, Union, Tuple # type: ignore
+import utils
 
-import  sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../', 'src/PyThon/NeuralNetwork/trainer')))
-from Base import train # type: ignore
+import deeplearning
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Set the random seed for reproducibility
-torch.manual_seed(42) # type: ignore
-if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(42)
+
+import  torch
+import  random
+import  numpy               as      np
+utils.set_randomness(42)
 
 # Set float32 matrix multiplication precision to medium
 torch.set_float32_matmul_precision('high')
@@ -89,40 +95,18 @@ def save_reconstructions(
             if i >= 5:  # Limit to first 5 batches
                 break  # Only process the 5 batch
 
-def train_lstm_model(SEQUENCE_LENGTH:int,
-                     skip: int,
+
+def train_lstm_model(
                      _case:str,
-                     epochs:int,
                      ImageSize:Tuple[int, int],
                      proj_dim:int,
                      LSTMEmbdSize:int,
 
-                     lr:float = 1e-2,
+                     skip: int = utils.config['Training']['Stride'],
+                     SEQUENCE_LENGTH:int = utils.config['Training']['window_Lenght'],
                      hidden_dim:int = 256,
-                     batch_size:int = 16,
-                     GPU_temperature:int = 70,
                      Autoencoder_CNN: torch.nn.modules = None) -> None:
-    
-    if  _case == "default":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30'
 
-    elif    _case == "NoRef":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30_LightSource'
-
-    elif    _case == "Position":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30_Position'
-
-    elif    _case == "Velocity":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30_Velocity_P540'
-
-    elif    _case == "Velocity_wide":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30_Velocity_wide'
-        
-    elif    _case == "Position_wide":
-        data_dir    = '/media/d2u25/Dont/frames_Process_30_Position_wide'
-
-    else:
-        raise NotImplementedError("case not implemented")
     
     if 'wide' in str.lower(_case):
         if ImageSize[1] != 1024 and ImageSize[0] != 256:
@@ -176,8 +160,16 @@ def train_lstm_model(SEQUENCE_LENGTH:int,
                                     )
 
     # Optimize DataLoader
-    train_loader = DataLoader(train_set, batch_size=batch_size, num_workers=16, shuffle=True, pin_memory=True)
-    val_loader   = DataLoader(val_set, batch_size=batch_size, num_workers=16, shuffle=False, pin_memory=True)
+    batch_size = utils.config['Training']['Batch_size']
+    if sys.platform == 'linux':
+        num_workers = utils.config['Training']['num_workers']
+    elif sys.platform == 'win32':
+        num_workers = 1
+        
+    train_loader = DataLoader(train_set, batch_size=batch_size, num_workers=num_workers,
+                               shuffle=True, pin_memory=True)
+    val_loader   = DataLoader(val_set, batch_size=batch_size, num_workers=num_workers,
+                               shuffle=False, pin_memory=True)
   
 
     # model = LSTMModel(input_dim, hidden_dim, num_layers, dropout)
@@ -185,8 +177,8 @@ def train_lstm_model(SEQUENCE_LENGTH:int,
     # optimizer = optim.SGD(model.parameters(), lr=1e-2,)
 
     optimizer = torch.optim.AdamW(model.parameters(),
-                                  lr=lr,
-                                  weight_decay=1e-4
+                                  lr            = utils.config['Training']['learning_rate'],
+                                  weight_decay  = utils.config['Training']['weight_decay']
                                   )
     criterion = nn.MSELoss()
     
@@ -195,34 +187,35 @@ def train_lstm_model(SEQUENCE_LENGTH:int,
     else:
         lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
 
-    train(
+    deeplearning.train(
         model = model,
         train_loader = train_loader,
         val_loader = val_loader,
+
         criterion = criterion,
         optimizer = optimizer,
-        epochs = epochs,
         device = device,
+
         Plateaued = None,
         model_name = f"AE_CNN_LSTM_HD{hidden_dim}_SL{SEQUENCE_LENGTH}_Skip{skip}_{case=}",
 
         handler = handler_supervised,
         handler_postfix=save_reconstructions,
 
-        ckpt_save_freq=30,
         ckpt_save_path=os.path.join(os.path.dirname(__file__), 'checkpoints'),
         ckpt_path=None,
         report_path=os.path.join(os.path.dirname(__file__), 'training_report.csv'),
-        use_hard_negative_mining=False,
 
         lr_scheduler = lr_scheduler,
-        GPU_temperature = GPU_temperature
+        epochs                  = utils.config['Training']['num_epochs'],
+        ckpt_save_freq          = utils.config['Training']['checkpoint_save_freq'],
+        use_hard_negative_mining= utils.config['Training']['hard_negative_mining'],
+        GPU_temperature         = utils.config['Training']['GPU_temperature'],
     )
 
 
 if __name__ == "__main__":
-    Ref = True
-    SEQUENCE_LENGTH = 10
+      
     skip = 4
     ImageSize: Tuple[int, int] = (201,201)
     LSTMEmbdSize = 512
@@ -233,13 +226,12 @@ if __name__ == "__main__":
     
     for case in ['Velocity']:
         for hidden_dim in [256]:
-            train_lstm_model(SEQUENCE_LENGTH=SEQUENCE_LENGTH,
+            train_lstm_model(SEQUENCE_LENGTH=utils.config['Training']['window_Lenght'],
                              hidden_dim=hidden_dim,
-                             epochs=30,
                              skip=skip,
                              _case=case,
-                             lr=0.001,
                              ImageSize=ImageSize,
                              LSTMEmbdSize=LSTMEmbdSize,
                              proj_dim=proj_dim,
-                             Autoencoder_CNN=Autoencoder_CNN,)
+                             Autoencoder_CNN=Autoencoder_CNN,
+                             )

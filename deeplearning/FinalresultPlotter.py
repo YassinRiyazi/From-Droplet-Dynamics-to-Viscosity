@@ -12,14 +12,14 @@ import pandas               as pd
 import matplotlib.pyplot    as plt
 from typing import Optional, List
 from tqdm import tqdm
-# from numpy.typing import NDArray
+from numpy.typing import NDArray
 
 
 def annotating(ax: plt.Axes,
                plot_desc: str,
-               data_1: np.typing.NDArray[np.float64],
-               data_2: np.typing.NDArray[np.float64],
-               data_3: Optional[np.typing.NDArray[np.float64]] = None) -> None:
+               data_1: NDArray[np.float64],
+               data_2: NDArray[np.float64],
+               data_3: Optional[NDArray[np.float64]] = None) -> None:
     """
     Annotate the plot with the lowest point information for each dataset, avoiding overlap.
 
@@ -39,11 +39,21 @@ def annotating(ax: plt.Axes,
         datasets.append(data_3)
         dataset_names.append('Test')
 
+    # dtaset sanitazation
+    for i, d in enumerate(datasets):
+        if not np.all(np.isfinite(d)):
+            print(f"Dataset {dataset_names[i]} contains invalid values.")
+            # drop invalid values for annotation
+            valid_indices = np.isfinite(d)
+            datasets[i] = d[valid_indices]
+
+
+
     # Calculate data range for dynamic offset
     data_max = max(np.max(data) for data in datasets)
     data_min = min(np.min(data) for data in datasets)
     data_range = data_max - data_min if data_max != data_min else 1.0
-    offset_step = 0.1 * data_range  # Vertical offset for each annotation
+    # offset_step = 0.1 * data_range  # Vertical offset for each annotation
 
     for idx, (data, name) in enumerate(zip(datasets, dataset_names)):
         min_value = np.min(data)
@@ -53,6 +63,11 @@ def annotating(ax: plt.Axes,
         # Stack annotations upwards starting from a base offset
         xytext_y = min_value + (0.1 + idx * 0.15) * data_range
 
+        if not (np.isfinite(min_epoch) and np.isfinite(min_value)):
+            continue
+        if not (np.isfinite(xytext_y)):
+            print(min_value, (0.1 + idx * 0.15) , data_range)
+            continue
         # Add annotation for the minimum point
         ax.annotate(f'{name} min {plot_desc}: {min_value:.4E}\n(Epoch {min_epoch})',
                     xy=(min_epoch, min_value),
@@ -244,4 +259,4 @@ if __name__ == "__main__":
     #                 ShowPlot=True)
     # find_csv_files("/home/d2u25/Desktop/Main/Projects/Viscosity/P2NeuralNetwork/Nphase4_AutoEncoder/checkpoints")
     # find_csv_files("/media/d2u25/Dont/checkpoints")
-    find_csv_files("Projects/Viscosity/P2NeuralNetwork/Nphase4_AutoEncoder/checkpoints")
+    find_csv_files("/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output/checkpoints")

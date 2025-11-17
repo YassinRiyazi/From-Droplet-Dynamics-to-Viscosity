@@ -335,8 +335,9 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
                     pil = np.array(pil)
                     pil_temp = np.array(pil_temp)
 
+                
                 pil_temp = LightSourceReflectionRemover(pil_temp)
-
+                _pil_temp_copy = pil.copy()
                 if self.embed_bool:
                     pil = self.image_embedding(pil, drop_position, count)
                     pil_temp = self.image_embedding(pil_temp, drop_position, count)
