@@ -36,7 +36,7 @@ import  numpy               as      np
 utils.set_randomness(42)
 
 # Set float32 matrix multiplication precision to medium
-torch.set_float32_matmul_precision('high')
+# torch.set_float32_matmul_precision('high')
 
 def handler_supervised(Args:tuple[torch.Tensor, torch.Tensor],
                        criterion: nn.Module,
@@ -94,7 +94,7 @@ def save_reconstructions(
                 for j in range(min(num_samples, len(target))):
                     f.write(f"{j}\t{target[j].item():.6f}\t{predicted[j].item():.6f}\n")
 
-            if i >= 5:  # Limit to first 5 batches
+            if i >= 30:  # Limit to first 30     batches
                 break  # Only process the 5 batch
 
 def train_lstm_model(
@@ -103,23 +103,28 @@ def train_lstm_model(
                      proj_dim:int,
                      LSTMEmbdSize:int,
 
-                     skip: int = utils.config['Training']['Stride'],
-                     SEQUENCE_LENGTH:int = utils.config['Training']['window_Lenght'],
+                     skip: int = utils.config['Training']['Constant_feature_LSTM']['Stride'],
+                     SEQUENCE_LENGTH:int = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
                      hidden_dim:int = 256,
                      Autoencoder_CNN: torch.nn.modules = None) -> None:
   
     _Ds = utils.data_set()
     _Ds.load_addresses()
-    train_set, val_set = _Ds.load_datasets(embedding_dim=proj_dim)
+    train_set, val_set = _Ds.load_datasets(embedding_dim=proj_dim,
+                                           stride=utils.config['Training']['Constant_feature_LSTM']['Stride'],
+                                           sequence_length=utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],)
 
     _case   = utils.config['Dataset']['embedding']['positional_encoding']
     Ref     = utils.config['Dataset']['reflection_removal']
-    ID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Stride']}_w{utils.config['Training']['window_Lenght']}"
+    ID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
     model_name_AE = f"CNN_AE_{utils.config['Training']['Constant_feature_AE']['AutoEncoder_layers']}_{utils.config['Training']['Constant_feature_AE']['Architecture']}_{_case}_{proj_dim}_{Ref=}_{ID}"
-    if len(glob.glob(f'Output/checkpoints/*{model_name_AE}*/*.pt')) == 1 :
-        AE_Address = sorted(glob.glob(f'Output/checkpoints/*{model_name_AE}*/*.pt'))[0]
+    
+    model_name_AE = model_name_AE.replace('_Ref','_self.Ref')
+    model_addresse = sorted(glob.glob(f'Output/checkpoints/AE_CNN/*{model_name_AE}*/*.pt'))
+    if len(model_addresse) == 1 :
+        AE_Address = model_addresse[0]
     else:
-        raise ValueError(f"Expected exactly one checkpoint for case '{model_name_AE}', but found {len(glob.glob(f'Output/checkpoints/*{model_name_AE}*/*.pt'))}.")
+        raise ValueError(f"Expected exactly one checkpoint for case '{model_name_AE}', but found {len(model_addresse)}.")
     
 
 
@@ -130,7 +135,7 @@ def train_lstm_model(
         hidden_dim          = hidden_dim,  # Adjust based on your model architecture
         num_layers          = utils.config['Training']['Constant_feature_LSTM']['Num_layers'],  # Number of LSTM layers
         dropout             = utils.config['Training']['Constant_feature_LSTM']['DropOut'],  # Dropout rate
-        sequence_length     = utils.config['Training']['window_Lenght'],
+        sequence_length     = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
         Autoencoder_CNN     = Autoencoder_CNN,
     )
 
@@ -153,7 +158,7 @@ def train_lstm_model(
     # optimizer = optim.SGD(model.parameters(), lr=1e-2,)
 
     optimizer = torch.optim.AdamW(model.parameters(),
-                                  lr            = float(utils.config['Training']['learning_rate']),
+                                  lr            = float(utils.config['Training']['Constant_feature_LSTM']['learning_rate']),
                                   weight_decay  = float(utils.config['Training']['weight_decay'])
                                   )
     criterion = nn.MSELoss()
@@ -173,7 +178,7 @@ def train_lstm_model(
         device = device,
 
         Plateaued = None,
-        model_name = f"AE_CNN_LSTM_HD{hidden_dim}_SL{SEQUENCE_LENGTH}_Skip{skip}_{case=}",
+        model_name = f"AE_CNN_LSTM_HD{hidden_dim}_SL{SEQUENCE_LENGTH}_s{skip}_w{utils.config['Training']['Constant_feature_LSTM']['window_Lenght']}_{case=}",
 
         handler = handler_supervised,
         handler_postfix=save_reconstructions,
@@ -199,13 +204,17 @@ if __name__ == "__main__":
     
     
     
-    for case in ['Velocity']:
-        for hidden_dim in [256]:
-            train_lstm_model(
-                             hidden_dim=hidden_dim,
-                             _case=case,
-                             ImageSize=ImageSize,
-                             LSTMEmbdSize=LSTMEmbdSize,
-                             proj_dim=proj_dim,
-                             Autoencoder_CNN=Autoencoder_CNN,
-                             )
+    for case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
+        # for hidden_dim in utils.config['Training']['Constant_feature_LSTM']['valid_embedding']:
+        #     utils.config['Training']['Constant_feature_LSTM']['Hidden_size'] = int(hidden_dim)
+            
+        #     for sequence in utils.config['Training']['Constant_feature_LSTM']['valid_window_Lenght']:
+        #         utils.config['Training']['Constant_feature_LSTM']['window_Lenght'] = sequence
+        train_lstm_model(
+                        hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
+                        _case=case,
+                        ImageSize=ImageSize,
+                        LSTMEmbdSize=LSTMEmbdSize,
+                        proj_dim=proj_dim,
+                        Autoencoder_CNN=Autoencoder_CNN,
+                        )

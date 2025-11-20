@@ -154,18 +154,19 @@ def save_reconstructions(
             Args = [arg.to(device) if arg.dim() <= 4 else arg.squeeze(1).to(device) for arg in Args]
             recon = model(Args[0])
 
-            mean_error = (recon - Args[0]).abs()[Args[1] > 0.01].mean()
-            mean_error = Scale * mean_error.item() / (Args[1] > 0.001).sum()
+            if utils.config['Dataset']['reflection_removal']==True:
+                mean_error = (recon - Args[0]).abs()[Args[1] > 0.01].mean()
+                mean_error = Scale * mean_error.item() / (Args[1] > 0.001).sum()
 
-            if mean_error > 0.50:
-                p = 0.5  # Cap the mean error to avoid extreme adjustments
-            elif mean_error < 0:
-                p = 0.05
-            else:
-                p = mean_error
-            
-            model.dropout.p = p
-            print(f"Mean reconstruction error (reflection areas): {mean_error:.6f}, Adjusted Dropout p: {model.dropout.p:.2f}")
+                if mean_error > 0.50:
+                    p = 0.5  # Cap the mean error to avoid extreme adjustments
+                elif mean_error < 0:
+                    p = 0.05
+                else:
+                    p = mean_error
+                
+                model.dropout.p = p
+                print(f"Mean reconstruction error (reflection areas): {mean_error:.6f}, Adjusted Dropout p: {model.dropout.p:.2f}")
             
             # Take only the first num_samples
             originals = Args[0][:num_samples]
@@ -217,7 +218,12 @@ def trainer(
     else:
         raise ValueError(f"Unknown model name: {utils.config['Training']['Constant_feature_AE']['Architecture']}")
     
-    model.DropOut = DropOut
+    if utils.config['Dataset']['reflection_removal']==True:
+        model.DropOut = False
+        addirtioanl_flag = False
+    else:
+        model.DropOut = DropOut
+        addirtioanl_flag = True
    
     _Ds = utils.data_set()
     _Ds.load_addresses()
@@ -260,6 +266,7 @@ def trainer(
         val_loader=val_loader,
 
         ckpt_path= ckpt_path,
+        additional_flag=addirtioanl_flag,
 
         criterion=criterion,
         optimizer=optimizer,
@@ -286,7 +293,7 @@ if __name__ == '__main__':
     for _case in utils.config['Dataset']['embedding']['Valid_encoding']:
         utils.config['Dataset']['embedding']['positional_encoding'] = _case
 
-        for embedding_dim in ([128,1024]): #, 1024*4, ,1024*8, 128
+        for embedding_dim in utils.config['Training']['Constant_feature_AE']['valid_latent_dim']: #, 1024*4, ,1024*8, 128
             trainer(
                 embedding_dim=embedding_dim,
                 ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints','AE_CNN'),

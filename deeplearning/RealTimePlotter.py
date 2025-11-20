@@ -1,6 +1,6 @@
 """
 Author:
-    - ChatGPT
+    - Yassin Riyazi
 Date:
     14-08-2025
 

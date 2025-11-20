@@ -11,11 +11,14 @@
         - [ ] make the base function for training or validation and add some hook to it for training.
         - [ ] save the train and loss plots
         - [ ] Implement SIGINT and SIGTERM handler, save and clean up before termination
+            
             In case of Ctrl + D: save the model and exit
-            In case of Ctrl + C:
-            In case of Ctrl + Z: properly finish epoch then pause
+            In case of Ctrl + C: Default behavior (terminate immediately)
             In case of Ctrl + X: turn off GPU temperature checking
+            
             In case of User defined SIGNAL:
+                - SIGUSR1: reduce learning rate by a factor of 5
+                - SIGUSR2: turn off dropout during training
 
         - [ ] Load and save general information to a YAML file
         - [14-08-2025] Change color of Val to yellow, and if loss of val increased with comparison to a global minimum change the color to red.
@@ -23,7 +26,7 @@
         - [11-08-2025] Added a GPU temperature monitor and sleep.
         - [ ] Save the result of the shell in a log file
         - [ ] Before terminating because of no meaningful change in loss, ask a user for confirmation and wait for 30 seconds.
-        In case of no response, save and exit.
+        In case of no response, save and exit. Same as the case of learning rate becoming too small or Ctrl + D.
 
 
     Help:
@@ -321,9 +324,10 @@ def train(
     model_name: str,
     ckpt_save_freq: int,
     ckpt_save_path: Union[str, os.PathLike[str]],
-    handler: Callable[[tuple[torch.Tensor, torch.Tensor], nn.Module, nn.Module], None],
+    handler: Callable[[tuple[torch.Tensor, torch.Tensor], nn.Module, nn.Module, torch.device, bool], None],
     handler_postfix: Union[Callable, None],
     Plateaued: Callable[[Callable, nn.Module, torch.optim.Optimizer, Optional[RealTimePlotter], str, str], int],
+    additional_flag: bool = False,
     ckpt_path: Union[str, os.PathLike[str], None] = None,
     report_path: Union[str, os.PathLike[str], None] = None,
     lr_scheduler: Union[torch.optim.lr_scheduler.LRScheduler, None] = None,
@@ -399,6 +403,11 @@ def train(
         else:
             current_train_loader = train_loader
 
+
+        # if learning rate become smalle than 1e-6, stop training
+        if optimizer.param_groups[0]["lr"] < 1e-7:
+            print(Fore.RED + f"Learning rate has become too small ({optimizer.param_groups[0]['lr']}). Stopping training." + Style.RESET_ALL)
+            break
         # ----------------- TRAIN -----------------
         model.train()
         loss_avg_train = AverageMeter()
@@ -407,7 +416,9 @@ def train(
 
         for batch_idx, Args in enumerate(train_loop):
             optimizer.zero_grad()
-            output, loss = handler(Args, criterion, model, additional=True, device=device)
+            output, loss = handler(Args, criterion, model,
+                                   device=device,   
+                                   additional=additional_flag,)
             del output  # Free up memory
             loss.backward()
             optimizer.step()
