@@ -19,7 +19,7 @@ Dataset:
             True                  : [1280, 512], # for full landscape images
             False                 : [201 , 201]  # for cropped case
           }
-  reflection_removal    : True # whether to remove reflection artifacts in images
+  reflection_removal    : False # whether to remove reflection artifacts in images
 
   embedding:
     positional_encoding   : 'False' # choosing what kind of encoding to be used
@@ -40,8 +40,8 @@ Training:
   
 
   Constant_feature_AE:
-    Architecture: 'Autoencoder_CNNV1_0'
-    Valid_architectures: ['Autoencoder_CNNV1_0', 'Autoencoder_CNNV2_0',]
+    Architecture: 'Autoencoder_TransformerV2_0'
+    Valid_architectures: ['Autoencoder_CNNV1_0', 'Autoencoder_CNNV3_0', 'Autoencoder_TransformerV2_0']
     DropOut: True
     AutoEncoder_layers: 9
     Stride                : 10 #10

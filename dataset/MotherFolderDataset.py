@@ -470,6 +470,7 @@ if __name__ == "__main__":
 
         import matplotlib.pyplot as plt
         img = train_dataset[0][0].squeeze().numpy()  # Remove channel dimension
+        print(f"Image shape: {img.shape}")
         plt.imshow(img, cmap='gray')
         plt.axis('off')  # Hide axis
         plt.show()  

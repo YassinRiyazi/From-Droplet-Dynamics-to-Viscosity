@@ -19,6 +19,7 @@
 import  os
 import  sys
 import  torch
+from networks.AutoEncoder_CNNV3_0 import create_autoencoder
 import  utils
 import  networks
 import  torch.nn            as      nn
@@ -87,6 +88,7 @@ def handler_selfSupervised(Args:tuple[torch.Tensor, torch.Tensor],
     Args = [arg.to(device) if arg.dim() <= 4 else arg.squeeze(1).to(device) for arg in Args]
 
     output = model(Args[0])
+
     loss   = criterion(output, Args[0])
     if additional:
         mean_error = (output - Args[0]).abs()[Args[1] > 0.01].mean()
@@ -153,7 +155,7 @@ def save_reconstructions(
             # _, recon = dataHandler(Args, model, device)
             Args = [arg.to(device) if arg.dim() <= 4 else arg.squeeze(1).to(device) for arg in Args]
             recon = model(Args[0])
-
+            print(Args[0].shape, recon.shape)
             if utils.config['Dataset']['reflection_removal']==True:
                 mean_error = (recon - Args[0]).abs()[Args[1] > 0.01].mean()
                 mean_error = Scale * mean_error.item() / (Args[1] > 0.001).sum()
@@ -205,16 +207,37 @@ def trainer(
     device: str                         = 'cuda' if torch.cuda.is_available() else 'cpu',
     DropOut:                    bool    = utils.config['Training']['Constant_feature_AE'].get('DropOut', False)
 ):
+    _Ds = utils.data_set()
+    _Ds.load_addresses()
+    train_dataset, val_dataset = _Ds.load_datasets(embedding_dim=embedding_dim,
+                                                   stride=utils.config['Training']['Constant_feature_AE']['Stride'],
+                                                  sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
+                                                  )
     
+    
+
     if utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_CNNV1_0':
         ImageSize: Tuple[int, int] = (201,201)
         model = networks.Autoencoder_CNNV1_0(DropOut = utils.config['Training']['Constant_feature_AE']["DropOut"],#.get('DropOut', True),
                                              embedding_dim = embedding_dim).to(device)
 
-    elif utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_CNNV2_0':
-        ImageSize: Tuple[int, int] = (256,1024)
-        model = networks.Autoencoder_CNNV2_0(num_blocks=AElayers,#num_blocks=8,
-                                                    Image=ImageSize).to(device)
+        
+    elif utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_CNNV3_0':
+        model = networks.create_autoencoder(preset='medium',
+            input_size=utils.config['data_resize'],
+            # latent_dim=embedding_dim,
+            # num_layers=AElayers,
+            # DropOut=utils.config['Training']['Constant_feature_AE']["DropOut"],
+        ).to(device)
+
+    elif utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_TransformerV2_0':
+        model = networks.AutoEncoder_TransformerV2_0.create_autoencoder(input_size= tuple(utils.config['data_resize']),
+                      preset='small',
+                        use_flash_attention=True,
+                        use_gradient_checkpointing=True,
+                                      ).to(device)
+        utils.config['Training']['learning_rate'] = 1e-3
+
     else:
         raise ValueError(f"Unknown model name: {utils.config['Training']['Constant_feature_AE']['Architecture']}")
     
@@ -225,12 +248,6 @@ def trainer(
         model.DropOut = DropOut
         addirtioanl_flag = True
    
-    _Ds = utils.data_set()
-    _Ds.load_addresses()
-    train_dataset, val_dataset = _Ds.load_datasets(embedding_dim=embedding_dim,
-                                                   stride=utils.config['Training']['Constant_feature_AE']['Stride'],
-                                                  sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
-                                                  )
     train_dataset, val_dataset = _Ds.reflectionReturn_Setter(flag=True)
     model_name = _Ds.model_name
 
@@ -290,7 +307,7 @@ def trainer(
 if __name__ == '__main__':
     AElayers = 9
     
-    for _case in utils.config['Dataset']['embedding']['Valid_encoding']:
+    for _case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
         utils.config['Dataset']['embedding']['positional_encoding'] = _case
 
         for embedding_dim in utils.config['Training']['Constant_feature_AE']['valid_latent_dim']: #, 1024*4, ,1024*8, 128

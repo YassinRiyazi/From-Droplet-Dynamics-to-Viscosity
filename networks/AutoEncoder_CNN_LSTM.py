@@ -11,10 +11,10 @@ import  torch
 import  torch.nn                as      nn
 from    typing                  import  Union
 if __name__ == "__main__":
-    from AutoEncoder_CNNV2_0 import  Autoencoder_CNN as Autoencoder_CNNV2
+    # from AutoEncoder_CNNV2_0 import  Autoencoder_CNN as Autoencoder_CNNV2
     from AutoEncoder_CNNV1_0 import  Autoencoder_CNN as Autoencoder_CNNV1
 else:
-    from    .AutoEncoder_CNNV2_0    import  Autoencoder_CNN as Autoencoder_CNNV2
+    # from    .AutoEncoder_CNNV2_0    import  Autoencoder_CNN as Autoencoder_CNNV2
     from    .AutoEncoder_CNNV1_0    import  Autoencoder_CNN as Autoencoder_CNNV1
 import  glob
 

@@ -184,6 +184,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         resize = utils.config['Dataset']['resize'][self.wide]
         if self.super_res:
             resize = (resize[0]*self.super_res_factor, resize[1]*self.super_res_factor)
+            utils.config['data_resize'] = resize
         self.transform: Callable[[Image.Image], torch.Tensor] = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.Resize(resize),
