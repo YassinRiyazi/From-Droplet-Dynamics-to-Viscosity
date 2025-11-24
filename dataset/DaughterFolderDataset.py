@@ -306,8 +306,9 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         tilt = np.full((_lenght, 1), tilt)
         SROF = np.concatenate(
             (np.full((_lenght, 1), tilt), 
+             np.full((_lenght, 1), count), 
              self.DataAddress[idx][2],
-             SROF[:,:-1],
+             SROF[:,:],
                                ), axis=1)
         # SROF = self.transform2(SROF).squeeze(0)  # shape: (seq_len, 1, features)
 

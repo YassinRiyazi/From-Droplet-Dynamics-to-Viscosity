@@ -15,6 +15,7 @@ def build_dataset(addresses: list[str]) -> NDArray[np.float64]:
 
         data[idx,2] = float(spil[-2].split('_')[-1])/127
     return data
+
 if __name__ == "__main__":
     data_dir = '/media/d25u2/Dont/Teflon-AVP'
 
