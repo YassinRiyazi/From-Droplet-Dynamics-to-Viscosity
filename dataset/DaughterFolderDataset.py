@@ -304,9 +304,10 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
 
         _lenght = len(self.DataAddress[idx][1])
         tilt = np.full((_lenght, 1), tilt)
+        
         SROF = np.concatenate(
-            (np.full((_lenght, 1), tilt), 
-             np.full((_lenght, 1), count), 
+            (np.full((_lenght, 50), tilt), 
+             np.full((_lenght, 50), count), 
              self.DataAddress[idx][2],
              SROF[:,:],
                                ), axis=1)

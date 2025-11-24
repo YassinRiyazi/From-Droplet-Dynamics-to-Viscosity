@@ -38,9 +38,24 @@ if torch.cuda.is_available():
 
 # Set float32 matrix multiplication precision to medium
 torch.set_float32_matmul_precision('medium')
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def Plateaued_Closed(save_model:Callable[..., None],
@@ -210,6 +225,33 @@ def trainer(
     device: str                         = 'cuda' if torch.cuda.is_available() else 'cpu',
     DropOut:                    bool    = utils.config['Training']['Constant_feature_AE'].get('DropOut', False)
 ):
+    
+    utils.config['Training']['Constant_feature_AE']['Architecture'] = 'Autoencoder_AttentionV1_0'
+    utils.config['Training']['learning_rate'] = 1e-5
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     _Ds = utils.data_set()
     _Ds.load_addresses()
     train_dataset, val_dataset = _Ds.load_datasets(embedding_dim=embedding_dim,
@@ -218,7 +260,7 @@ def trainer(
                                                   )
     
     
-
+    
     if utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_CNNV1_0':
         ImageSize: Tuple[int, int] = (201,201)
         model = networks.Autoencoder_CNN(DropOut = utils.config['Training']['Constant_feature_AE']["DropOut"],#.get('DropOut', True),

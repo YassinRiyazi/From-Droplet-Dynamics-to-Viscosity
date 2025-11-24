@@ -45,7 +45,7 @@ Training:
     Valid_architectures: ['Autoencoder_CNNV1_0', 'Autoencoder_CNNV3_0', 'Autoencoder_TransformerV2_0']
     DropOut: True
     AutoEncoder_layers: 9
-    Stride                : 10 #10
+    Stride                : 2 #10
     window_Lenght         : 1
     valid_latent_dim     : [128, 1024]
 

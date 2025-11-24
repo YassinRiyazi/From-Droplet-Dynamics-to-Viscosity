@@ -341,6 +341,7 @@ def train(
     enable_live_plot: bool = True,
     prefer_opengl_plot: bool = True,
     new_lr: float|None = None,
+    use_amp: bool = False,
 ) -> tuple[nn.Module, torch.optim.Optimizer, pd.DataFrame]:
     
     def handle_signal_SIGUSR1(signum, frame):
@@ -370,6 +371,9 @@ def train(
     if new_lr is not None:
         for param_group in optimizer.param_groups:
             param_group['lr'] = new_lr
+
+    # Initialize GradScaler for AMP
+    scaler = torch.amp.GradScaler('cuda', enabled=use_amp)
 
     # Live plotter
     plotter = RealTimePlotter(title=f"{model_name} – Real-Time Loss", prefer_opengl=prefer_opengl_plot) if enable_live_plot else None
@@ -416,12 +420,17 @@ def train(
 
         for batch_idx, Args in enumerate(train_loop):
             optimizer.zero_grad()
-            output, loss = handler(Args, criterion, model,
-                                   device=device,   
-                                   additional=additional_flag,)
+            
+            with torch.autocast(device_type='cuda', enabled=use_amp):
+                output, loss = handler(Args, criterion, model,
+                                       device=device,   
+                                       additional=additional_flag,)
+            
             del output  # Free up memory
-            loss.backward()
-            optimizer.step()
+            
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             loss_avg_train.update(loss.item(), Args[0].size(0))
 

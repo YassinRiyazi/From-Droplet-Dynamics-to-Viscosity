@@ -49,12 +49,12 @@ def save_reconstructions(model: nn.Module,
                         device: torch.device,
                         save_dir: str,
                         epoch: int,
-                        num_samples: int = 64) -> None:
+                        num_samples: int = 8) -> None:
     """Save predictions and visualize attention weights."""
     num_samples = max(num_samples, 64)
     model.eval()
     os.makedirs(save_dir, exist_ok=True)
-    
+    return 0 
     with torch.no_grad():
         for i, Args in enumerate(dataloader):
             Args = [arg.contiguous().to(device) for arg in Args]
@@ -245,7 +245,7 @@ def train_transformer_model(
         dim_feedforward=d_model * 4,
         dropout=utils.config['Training']['Constant_feature_LSTM']['DropOut'],
         Autoencoder_CNN=Autoencoder_CNN,
-        S4_size=12
+        S4_size=110
     )
     
     # DataLoaders
