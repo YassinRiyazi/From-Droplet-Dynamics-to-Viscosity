@@ -56,19 +56,17 @@ import  numpy                   as      np
 from    PIL                     import  Image
 from    torch.utils.data        import  Dataset
 from    torchvision             import  transforms # type: ignore
-from    typing                  import  Callable, Tuple, List
+from    typing                  import  Callable, List
 import pandas as pd
 from numpy.typing import NDArray
 
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if __name__ == "__main__":
-    import sys
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from positional_encoding.PositionalImageGenerator import PE_Generator
     from light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
     from    header                  import  BatchAddress, DataSetData, DaughterSet_internal_, DaughterSet_getitem_ # type: ignore
 else:
-    import sys
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
     sys.path.append(os.path.abspath(__file__))
     from positional_encoding.PositionalImageGenerator import PE_Generator
@@ -165,32 +163,37 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         self.super_res          = utils.config['Dataset'].get('super_resolution', False)
         self.super_res_factor   = utils.config['Dataset']['embedding'].get('super_resolution_factor', 1)
         self.reflect_remover    = utils.config['Dataset']['reflection_removal']
-        self.embed_bool = utils.config['Dataset']['embedding']['positional_encoding'] != 'False'
-        self.embedID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_"
+        self.embed_bool         = utils.config['Dataset']['embedding']['positional_encoding'] != 'False'
+        self.embedID            = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_"
+
         if self.super_res:
-            self.embedID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_"
+            self.embedID        = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_"
 
         self.embedding_file:dict[int, NDArray[np.uint8] | None] = {}
 
         self.seq_len        = seq_len
         self.stride         = stride
-        # self.DataHandler    = DataHandler(extension=self.extension, resize=resize)
-
         foldersDic          = self.loadAddresses(dirs,utils.config['image_extension'])
 
         self.DataAddress    = self.loadOrderedImages(foldersDic,
-                                                        seqLength=seq_len,
-                                                        _Stride=stride)
-        resize = utils.config['Dataset']['resize'][self.wide]
+                                                    seqLength=seq_len,
+                                                    _Stride=stride)
+        
+        resize              = utils.config['Dataset']['resize'][self.wide]
         if self.super_res:
-            resize = (resize[0]*self.super_res_factor, resize[1]*self.super_res_factor)
+            resize          = (resize[0]*self.super_res_factor, resize[1]*self.super_res_factor)
             utils.config['data_resize'] = resize
+
         self.transform: Callable[[Image.Image], torch.Tensor] = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.Resize(resize),
             transforms.ToTensor(), #Converts a PIL Image or numpy.ndarray (H x W x C) in the range [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0] 
             # transforms.Normalize((0.5,), (0.5,)),
         ])
+
+        self.transform2 = transforms.Compose([
+             transforms.ToTensor(),])
+        
         self.ReturnReflection = False
 
     def PE_embedding(self,
@@ -250,7 +253,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             tolerance   = tolerance     * self.super_res_factor
 
         # pe_norm     = cv2.resize(self.embedding_file, (1245, PE_height), interpolation=cv2.INTER_LINEAR)
-        pe_norm     = self.embedding_file[count].copy()
+        pe_norm     = self.embedding_file[count].copy() 
         pe_norm     = pe_norm[:,endpoint-tolerance:beginning+tolerance]
 
         # TODO: Check if bitwise not is required.
@@ -284,8 +287,9 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
     def __len__(self):
         return len(self.DataAddress)
 
-    def __getitem__(self, idx:int) -> DaughterSet_getitem_:
-        if self.ReturnReflection:
+    def __getitem__(self, idx:int) -> DaughterSet_getitem_|tuple[torch.Tensor, torch.Tensor]:
+        if self.ReturnReflection == True:
+            # print("seq_tensor, seq_reflection_tensor")
             return self.getitem_Reflection(idx)
         else:
             return self.__getitem__Normal(idx)
@@ -297,6 +301,13 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         SROF            = self.DataAddress[idx][3]
         tilt            = self.DataAddress[idx][4]
         count           = self.DataAddress[idx][5]
+
+        _lenght = len(self.DataAddress[idx][1])
+        tilt = np.full((_lenght, 1), tilt)
+        SROF = np.concatenate((np.full((_lenght, 1), tilt),
+                               self.DataAddress[idx][2],SROF,
+                               ), axis=1)
+        # SROF = self.transform2(SROF).squeeze(0)  # shape: (seq_len, 1, features)
 
         for file_path, drop_position in zip(self.DataAddress[idx][1],self.DataAddress[idx][2]):
             pil = Image.open(file_path).convert("L")
@@ -317,8 +328,13 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             seq.append(data)
 
         seq_tensor = torch.stack(seq)
-        return seq_tensor, torch.tensor(viscosity, dtype=torch.float32), torch.tensor(drop_position, dtype=torch.int16), torch.tensor(SROF, dtype=torch.float32), torch.tensor(tilt, dtype=torch.int16)
-    
+        return (seq_tensor,
+                torch.tensor(viscosity, dtype=torch.float32),
+                torch.tensor(SROF, dtype=torch.float32),
+                # torch.tensor(drop_position, dtype=torch.int16),
+                # torch.tensor(tilt, dtype=torch.int16)
+                )
+       
     def getitem_Reflection(self, idx:int) -> tuple[torch.Tensor, torch.Tensor]:
             seq: list[torch.Tensor] = []
             seq_reflection: list[torch.Tensor] = []
@@ -390,7 +406,6 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         spot = cv2.bitwise_and(img_u8, img_u8, mask=mask)
         return spot
     
-
     def checkingFilesExist(self, 
                            files:List[str],
                            dropLocation: pd.DataFrame,
@@ -516,7 +531,7 @@ if __name__ == "__main__":
     vv = DaughterFolderDataset(dirs=['/media/d25u2/Dont/Viscosity/280/S5-S2.01_S20/D175220_01_4.46',
                                     #  '/media/d25u2/Dont/Viscosity/280/S5-S2.01_S20/D175220_02_4.46',
                                      '/media/d25u2/Dont/Viscosity/280/S5-S90per_S8/D165644_16_142.40'],
-                         seq_len=1,
+                         seq_len=10,
                          stride=1,)
     
     cc = vv[317]

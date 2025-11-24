@@ -32,6 +32,7 @@ Dataset:
   cropped_tolerance  : 15 # number of pixels above and below the droplet to include in cropped images
 
 Training:
+  USE_pretrained_AE    : False  # whether to use a pre-trained autoencoder model
   batch_size            : 16
   learning_rate         : 1e-4
 
@@ -40,7 +41,7 @@ Training:
   
 
   Constant_feature_AE:
-    Architecture: 'Autoencoder_TransformerV2_0'
+    Architecture: 'Autoencoder_CNNV1_0'
     Valid_architectures: ['Autoencoder_CNNV1_0', 'Autoencoder_CNNV3_0', 'Autoencoder_TransformerV2_0']
     DropOut: True
     AutoEncoder_layers: 9
@@ -49,7 +50,7 @@ Training:
     valid_latent_dim     : [128, 1024]
 
   Constant_feature_LSTM:
-    learning_rate: 1e-3
+    learning_rate: 1e-4
     Hidden_size: 256
     Num_layers: 2
     DropOut: 0.3

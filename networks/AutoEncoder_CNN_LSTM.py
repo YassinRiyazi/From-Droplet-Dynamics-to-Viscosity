@@ -103,8 +103,7 @@ class Encoder_LSTM(torch.nn.Module):
                  hidden_dim:int  = 128 ,  # hidden dimension
                  num_layers:int  = 2   ,  # number of LSTM layers
                  dropout:float   = 0.2 ,  # dropout rate
-                 sequence_length:int = 5,
-                 Autoencoder_CNN: torch.nn.modules = None) -> None:
+                 Autoencoder_CNN: torch.nn.Module|None = None) -> None:
         """
         Initializes the LSTM encoder.
         Args:
@@ -123,7 +122,7 @@ class Encoder_LSTM(torch.nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.autoencoder = address_autoencoder
         self.proj_dim = proj_dim
-        self.Properties = {
+        self.Properties: dict[str, int|float] = {
                             "input_dim": proj_dim,
                             "hidden_dim": hidden_dim,
                             "num_layers": num_layers,
@@ -140,6 +139,9 @@ class Encoder_LSTM(torch.nn.Module):
                               dropout=dropout).to(self.device)
         # self.proj   = nn.Linear(proj_dim, LSTMEmbdSize, device=self.device)
         # self.relu   = nn.ReLU()
+
+        # adding input batch normalization
+        self.input_bn = nn.BatchNorm1d(LSTMEmbdSize).to(self.device)
         return None
     
     def _encoder(self,x:torch.Tensor) -> torch.Tensor:
@@ -164,9 +166,16 @@ class Encoder_LSTM(torch.nn.Module):
         Returns:
             torch.Tensor: Output tensor of shape (batch_size, hidden_dim)
         """
+
         if self.autoencoder:
             x = self._encoder(x)
 
+        # Apply batch normalization
+        batch_size, seq_length, feature_dim = x.size()
+        x = x.view(-1, feature_dim)  # (batch_size * seq_length, feature_dim)
+        x = self.input_bn(x)
+        x = x.view(batch_size, seq_length, feature_dim)  # (batch_size, seq_length, feature_dim)
+        
         # x = self.relu(self.proj(x))
 
         # Apply LayerNorm directly (no flattening needed)
@@ -175,8 +184,8 @@ class Encoder_LSTM(torch.nn.Module):
         return out.squeeze(1)  # (batch_size,)
     
     def load_autoencoder(self,
-                         address_autoencoder: str|os.PathLike[str],
-                         Autoencoder_CNN: torch.nn.modules) -> None:
+                         address_autoencoder: str|None,
+                         Autoencoder_CNN: torch.nn.Module|None) -> None:
         """
         Load the autoencoder model from a file.
         Args:
@@ -184,11 +193,13 @@ class Encoder_LSTM(torch.nn.Module):
         Returns:
             None: Loads the autoencoder model.
         """
+        if Autoencoder_CNN is None:
+            raise ValueError("Autoencoder_CNN model must be provided to load the autoencoder.")
+        if address_autoencoder is None or os.path.isfile(address_autoencoder) is False:
+            raise ValueError(f"Address of the autoencoder model must be correctly provided. {address_autoencoder} is invalid.")
+        
         self.autoencoder = Autoencoder_CNN(embedding_dim = self.proj_dim).to(self.device)
         self.autoencoder.eval()
-        if os.path.isfile(address_autoencoder):
-            self.autoencoder.load_state_dict(torch.load(address_autoencoder, map_location=self.device))
-        else:
-            raise FileNotFoundError(f"Autoencoder model file not found at {address_autoencoder}")
-        # self.autoencoder.requires_grad_(False)
+        self.autoencoder.load_state_dict(torch.load(address_autoencoder, map_location=self.device))
+        
         return None

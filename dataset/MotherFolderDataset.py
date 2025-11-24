@@ -22,25 +22,22 @@ import  numpy                       as      np
 import  pandas                      as      pd # type: ignore
 from    sklearn.model_selection     import  train_test_split # type: ignore
 from    torch.utils.data            import  Dataset
-from    typing                      import  List, Dict, Union, Tuple, Any
+from    typing                      import  List, Dict, Union, Any
 from    PIL                         import  Image
 from    torchvision                 import  transforms # type: ignore
 
+import sys 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.abspath(__file__))
+sys.path.append(__file__)
+import utils
+
 if __name__ == "__main__":
-    import sys 
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    sys.path.append(os.path.abspath(__file__))
-    sys.path.append(__file__)
-    import utils
     from    header                  import  StringListDict, setSeed, DaughterSet_getitem_
     from    DaughterFolderDataset   import  DaughterFolderDataset
     from    light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
+
 else:
-    import sys 
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    sys.path.append(os.path.abspath(__file__))
-    sys.path.append(__file__)
-    import utils
     from    .header                 import  StringListDict, setSeed, DaughterSet_getitem_
     from    .DaughterFolderDataset  import  DaughterFolderDataset
     from    .light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
@@ -94,6 +91,7 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         - Configuration (dicAddresses, stride, sequence_length)
         - Precomputed DataAddress lists from each DaughterFolderDataset
         - Dataset length and maximum viscosity
+        - Precomputed embedding_file dictionaries to avoid regenerating embeddings
         
         This allows fast loading without re-scanning directories and CSVs.
         
@@ -102,16 +100,18 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         """
         cache: Dict[str, Any] = {
             'dicAddresses': self.dicAddresses,
+            'len': self._len,
             'stride': self.stride,
             'sequence_length': self.sequence_length,
             'maximum_viscosity': self._MaximumViscosityGetter,
-            'len': self._len,
-            'daughter_data': {}
+            'daughter_data': {},
+            'embedding_files': {}
         }
         
-        # Extract DataAddress lists from each DaughterFolderDataset
+        # Extract DataAddress lists and embedding_file dictionaries from each DaughterFolderDataset
         for fluid, ds in self.DaughterSets.items():
             cache['daughter_data'][fluid] = ds.DataAddress
+            cache['embedding_files'][fluid] = ds.embedding_file
         
         with open(filepath, 'wb') as f:
             pickle.dump(cache, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -125,6 +125,7 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         
         This bypasses directory scanning and CSV parsing by reusing saved DataAddress lists.
         Images are still loaded lazily during __getitem__ calls.
+        Embedding files are also restored from cache to avoid regeneration.
         
         Args:
             filepath (str): Path to the cache file (e.g., 'dataset_cache.pkl')
@@ -139,11 +140,11 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         self = object.__new__(cls)
         
         # Restore attributes
-        self.dicAddresses = cache['dicAddresses']
-        self.stride = cache['stride']
-        self.sequence_length = cache['sequence_length']
-        self.splits = None
-        self._len = cache['len']
+        self.dicAddresses           = cache['dicAddresses']
+        self.stride                 = cache['stride']
+        self.sequence_length        = cache['sequence_length']
+        self.splits                 = None
+        self._len                   = cache['len']
         self._MaximumViscosityGetter = cache['maximum_viscosity']
         
         # Reconstruct DaughterSets using cached DataAddress lists
@@ -155,66 +156,28 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         except:
             proto = None
         
-        class _CachedDaughter:
+        class _CachedDaughter(DaughterFolderDataset):
             """Lightweight replacement for DaughterFolderDataset that reuses cached data"""
-            def __init__(inner_self, dataaddress: list, proto_ref: Any):
+            def __init__(inner_self, dataaddress: list, embedding_file_cache: dict, proto_ref: Any):
+                # Inherit attributes from prototype to ensure full compatibility
+                # This copies all attributes initialized from config in DaughterFolderDataset
+                if proto_ref is not None:
+                    inner_self.__dict__.update(proto_ref.__dict__)
+                else:
+                    super().__init__(dirs=[], seq_len=self.sequence_length, stride=self.stride)
+                
+                # Override DataAddress with cached data
                 inner_self.DataAddress = dataaddress
-                inner_self._proto = proto_ref
-            
-            def __len__(inner_self) -> int:
-                return len(inner_self.DataAddress)
-            
-            def dataNormalizer(inner_self, MaxLength: int) -> None:
-                """Match DaughterFolderDataset interface"""
-                import random
-                random.seed(42)
-                random.shuffle(inner_self.DataAddress)
-                inner_self.DataAddress = inner_self.DataAddress[:MaxLength]
-            
-            def __getitem__(inner_self, idx: int) -> Any:
-                """Load images on-demand using cached metadata"""
-                seq: list = []
-                viscosity = inner_self.DataAddress[idx][0]
-                files = inner_self.DataAddress[idx][1]
-                drop_positions = inner_self.DataAddress[idx][2]
-                SROF = inner_self.DataAddress[idx][3]
-                tilt = inner_self.DataAddress[idx][4]
-                count = inner_self.DataAddress[idx][5]
                 
-                for file_path, drop_position in zip(files, drop_positions):
-                    pil = Image.open(file_path).convert("L")
-                    
-                    if not isinstance(pil, np.ndarray):
-                        pil = np.array(pil)
-                    
-                    # Apply reflection removal if configured
-                    if inner_self._proto is not None and inner_self._proto.reflect_remover:
-                        pil = LightSourceReflectionRemover(pil)
-                    
-                    # Apply embedding if configured
-                    if inner_self._proto is not None and inner_self._proto.embed_bool:
-                        if count not in inner_self._proto.embedding_file:
-                            inner_self._proto.embedding_file[count] = inner_self._proto.PE_embedding(size_x=count)
-                        pil = inner_self._proto.image_embedding(pil, drop_position, count)
-                    
-                    if isinstance(pil, np.ndarray):
-                        pil = Image.fromarray(pil.astype(np.uint8))
-                    
-                    # Apply transform
-                    if inner_self._proto is not None:
-                        data = inner_self._proto.transform(pil)
-                    else:
-                        # Fallback transform
-                        data = transforms.ToTensor()(pil)
-                    seq.append(data)
-                
-                seq_tensor = torch.stack(seq)
-                return seq_tensor, torch.tensor(viscosity, dtype=torch.float32), torch.tensor(drop_position, dtype=torch.int16), torch.tensor(SROF, dtype=torch.float32), torch.tensor(tilt, dtype=torch.int16)
-        
+                # Restore embedding_file dictionary from cache instead of regenerating
+                inner_self.embedding_file = embedding_file_cache
+
+            
         # Rebuild DaughterSets from cached data
         self.DaughterSets = {}
         for fluid, dataaddr in cache['daughter_data'].items():
-            self.DaughterSets[fluid] = _CachedDaughter(dataaddr, proto)
+            embedding_cache = cache.get('embedding_files', {}).get(fluid, {})
+            self.DaughterSets[fluid] = _CachedDaughter(dataaddr, embedding_cache, proto)
         
         print(f"Dataset loaded from cache: {filepath}")
         print(f"Maximum viscosity in dataset: {self._MaximumViscosityGetter}")
@@ -243,11 +206,8 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
 
         kk = tqdm.tqdm(dicAddresses.items())
         for fluid, dirs in kk:
-            # ## FIXME: temporary fix for S5-SDS99 only
-            # if not "S5-SDS99" in fluid:
-            #     continue
-
-            kk.set_postfix({"Loading DaughterSet for fluid": fluid}) # Updated to show fluid name
+            
+            kk.set_postfix({"Loading DaughterSet for fluid": fluid}) #type:ignore Updated to show fluid name
             self.DaughterSets[fluid] = DaughterFolderDataset(dirs,
                                                             seq_len=self.sequence_length,
                                                             stride=self.stride,
@@ -290,12 +250,14 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         for viscosityInDic, dataset in self.DaughterSets.items():
             del viscosityInDic
             if idx < len(dataset):
-                Data = dataset[idx] # type: ignore
-                return Data[0], Data[1]/self._MaximumViscosityGetter 
+                Data = list(dataset[idx]) # type: ignore
+                # convert tuple to list to allow modification
+                Data[1] = Data[1]/self._MaximumViscosityGetter
+                return tuple(Data)
             idx -= len(dataset)
         raise IndexError(f"Index {idx} out of range after traversing all DaughterSets.")
     
-    def reflectionReturn_Setter(self,state: bool) -> None:
+    def reflectionReturn_Setter(self,state: bool,) -> None:
         for dataset in self.DaughterSets.values():
             dataset.ReturnReflection = state
 
@@ -462,18 +424,44 @@ if __name__ == "__main__":
     # cache_test = os.path.join(cache_dir, f"dataset_cache_test.pkl")
     
     
+    import matplotlib.pyplot as plt
     # ===== TRAINING DATASET =====
     if os.path.exists(cache_train):
         print("Loading TRAINING dataset from cache...")
         train_dataset = MotherFolderDataset.load_cache(cache_train)
 
-
-        import matplotlib.pyplot as plt
-        img = train_dataset[0][0].squeeze().numpy()  # Remove channel dimension
+        item = train_dataset[100]
+        train_dataset.reflectionReturn_Setter(state=False)
+        img = item[0][0].squeeze().numpy()  # Remove channel dimension
         print(f"Image shape: {img.shape}")
+        plt.figure()
         plt.imshow(img, cmap='gray')
         plt.axis('off')  # Hide axis
         plt.show()  
+
+
+        for dataset in train_dataset.DaughterSets.values():
+            dataset.reflect_remover = True
+        item = train_dataset[100]
+        img = item[0][0].squeeze().numpy()  # Remove channel dimension
+        print(f"Image shape: {img.shape}")
+        plt.figure()
+        plt.imshow(img, cmap='gray')
+        plt.axis('off')  # Hide axis
+        plt.show() 
+
+        plt.figure()
+        train_dataset.reflectionReturn_Setter(state=True)
+        item = train_dataset[100]
+        img = item[0][0].squeeze().numpy()  # Remove channel dimension
+        plt.imshow(img, cmap='gray')
+        plt.axis('off')  # Hide axis
+        plt.show()
+        img = item[1][0].squeeze().numpy()  # Remove channel dimension
+        plt.imshow(img, cmap='gray')
+        plt.axis('off')  # Hide axis
+        plt.show()  
+
     else:
         print("Creating TRAINING dataset from scratch (this will take time)...")
         train_dataset = MotherFolderDataset(

@@ -1,3 +1,9 @@
+# Important notes
+
+# If the folder was already tracked by Git before you added it to .gitignore, Git will continue tracking it.
+# To stop tracking it, run:Bash
+# git rm -r --cached <folder_name>
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -5,7 +11,10 @@ __pycache__/
 
 # C extensions
 *.so
-Output/checkpoints/
+Output/
+checkpoints/
+*.pkl
+
 # Distribution / packaging
 .Python
 build/

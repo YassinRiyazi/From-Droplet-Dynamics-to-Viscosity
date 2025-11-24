@@ -20,6 +20,9 @@ def count_python_lines(root_dir: str):
 
     for dirpath, _, filenames in os.walk(root_dir):
         for filename in filenames:
+            if 'BK' in dirpath:
+                continue  # Skip .BK directories
+
             if filename.endswith(".py"):
                 file_path = os.path.join(dirpath, filename)
                 try:

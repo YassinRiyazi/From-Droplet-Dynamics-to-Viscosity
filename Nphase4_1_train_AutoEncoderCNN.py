@@ -19,7 +19,6 @@
 import  os
 import  sys
 import  torch
-from networks.AutoEncoder_CNNV3_0 import create_autoencoder
 import  utils
 import  networks
 import  torch.nn            as      nn
@@ -218,26 +217,10 @@ def trainer(
 
     if utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_CNNV1_0':
         ImageSize: Tuple[int, int] = (201,201)
-        model = networks.Autoencoder_CNNV1_0(DropOut = utils.config['Training']['Constant_feature_AE']["DropOut"],#.get('DropOut', True),
+        model = networks.Autoencoder_CNN(DropOut = utils.config['Training']['Constant_feature_AE']["DropOut"],#.get('DropOut', True),
                                              embedding_dim = embedding_dim).to(device)
 
-        
-    elif utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_CNNV3_0':
-        model = networks.create_autoencoder(preset='medium',
-            input_size=utils.config['data_resize'],
-            # latent_dim=embedding_dim,
-            # num_layers=AElayers,
-            # DropOut=utils.config['Training']['Constant_feature_AE']["DropOut"],
-        ).to(device)
-
-    elif utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_TransformerV2_0':
-        model = networks.AutoEncoder_TransformerV2_0.create_autoencoder(input_size= tuple(utils.config['data_resize']),
-                      preset='small',
-                        use_flash_attention=True,
-                        use_gradient_checkpointing=True,
-                                      ).to(device)
-        utils.config['Training']['learning_rate'] = 1e-3
-
+    
     else:
         raise ValueError(f"Unknown model name: {utils.config['Training']['Constant_feature_AE']['Architecture']}")
     
