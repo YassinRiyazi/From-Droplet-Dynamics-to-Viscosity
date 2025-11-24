@@ -82,8 +82,10 @@ def handler_selfSupervised(Args:tuple[torch.Tensor, torch.Tensor],
                            criterion: nn.Module,
                            model: nn.Module,
                            device: torch.device = 'cuda',
-                           additional: Optional[bool] = False) -> tuple[torch.Tensor, torch.Tensor]:
-    Scale = 1
+                           additional: Optional[bool] = utils.config['Dataset']['reflection_removal']==False,
+                           Scale: float = 1,
+                           ) -> tuple[torch.Tensor, torch.Tensor]:
+    
     Args = [arg.to(device) if arg.dim() <= 4 else arg.squeeze(1).to(device) for arg in Args]
 
     output = model(Args[0])
@@ -154,8 +156,8 @@ def save_reconstructions(
             # _, recon = dataHandler(Args, model, device)
             Args = [arg.to(device) if arg.dim() <= 4 else arg.squeeze(1).to(device) for arg in Args]
             recon = model(Args[0])
-            print(Args[0].shape, recon.shape)
-            if utils.config['Dataset']['reflection_removal']==True:
+
+            if utils.config['Dataset']['reflection_removal']==False:
                 mean_error = (recon - Args[0]).abs()[Args[1] > 0.01].mean()
                 mean_error = Scale * mean_error.item() / (Args[1] > 0.001).sum()
 
@@ -255,10 +257,6 @@ def trainer(
     else:
         scheduler   = lr_scheduler.ExponentialLR(optimizer, gamma=0.85)  # Divide by 5 every epoch 0.2
 
-
-
-    
-
     # Train the model
     model, optimizer, report = deeplearning.train(
         model=model,
@@ -288,12 +286,11 @@ def trainer(
 
     
 if __name__ == '__main__':
-    AElayers = 9
     
     for _case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
         utils.config['Dataset']['embedding']['positional_encoding'] = _case
 
-        for embedding_dim in utils.config['Training']['Constant_feature_AE']['valid_latent_dim']: #, 1024*4, ,1024*8, 128
+        for embedding_dim in [1024]:#utils.config['Training']['Constant_feature_AE']['valid_latent_dim']: #, 1024*4, ,1024*8, 128
             trainer(
                 embedding_dim=embedding_dim,
                 ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints','AE_CNN'),

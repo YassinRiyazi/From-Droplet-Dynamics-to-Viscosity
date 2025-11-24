@@ -1,0 +1,7 @@
+Parameters: stride=4, sequence_length=10, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Processing case: Dataframe
+Parameters: stride=4, sequence_length=10, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Mean SI: 0.9066535268838589
+Parameters: stride=4, sequence_length=100, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Processing case: Dataframe
+Parameters: stride=4, sequence_length=100, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100

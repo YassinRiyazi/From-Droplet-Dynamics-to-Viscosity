@@ -8,22 +8,18 @@
         - 17-11-2025: Update to new be adaptible with the congig file structure.
                         Added dataset in utils to load datasets.
         
-
-    TODO:
-        - imtegrate the df to the LSTM training pipeline.
-
 """
 import  os
+import  sys 
 import  glob
-import sys 
 import  torch
 import  networks
-import  dataset             as      DSS
 import  torch.nn            as      nn
 import  torch.optim         as      optim
 from    torch.utils.data    import  DataLoader
 from    typing              import  Callable, Optional, Union, Tuple # type: ignore
 import utils
+from    torchvision.utils   import  save_image
 
 import deeplearning
 
@@ -48,10 +44,15 @@ def handler_supervised(Args:tuple[torch.Tensor, torch.Tensor],
     """
     Args = [arg.contiguous().to(device) for arg in Args]
     model.lstm.reset_states(Args[0])  # Reset LSTM states before processing a new batch
-    output = model(Args[0])
+    
+    output = model(Args[0],)
+                #    Args[2])  # Forward pass with additional input
     loss = criterion(output, Args[1].view(-1))
     return output, loss
 
+
+import matplotlib.pyplot as plt
+import seaborn as sns
 def save_reconstructions(
                          model: nn.Module,
                          dataloader: torch.utils.data.DataLoader,
@@ -77,7 +78,8 @@ def save_reconstructions(
         for i, Args in enumerate(dataloader):
             Args = [arg.contiguous().to(device) for arg in Args]
             model.lstm.reset_states(Args[0])  # Reset LSTM states before processing a new batch
-            output = model(Args[0])
+            output = model(Args[0], )
+                        #    Args[2])  # Forward pass with additional input
 
             target = Args[1].view(-1)
             predicted = output.view(-1)
@@ -94,6 +96,28 @@ def save_reconstructions(
                 for j in range(min(num_samples, len(target))):
                     f.write(f"{j}\t{target[j].item():.6f}\t{predicted[j].item():.6f}\n")
 
+            # breakpoint()
+
+            originals = Args[0][rand_indices][:,0,:,:,:]
+            if originals.size(1) != 1:
+                originals = originals.unsqueeze(1)
+
+            save_image(originals,       os.path.join(save_dir, f'originals_epoch{epoch}_batch{i}.png'),         nrow=num_samples)
+            # FIXEME: Add attention weights visualization
+            # attention = model.AttentionWeights()
+            # if attention is not None:
+            #     plt.figure(figsize=(10, 8))
+            #     sns.heatmap(attention[0].cpu().detach().numpy(), 
+            #                 cmap='viridis', 
+            #                 # xticklabels=range(seq_length),
+            #                 # yticklabels=range(seq_length)
+            #                 )
+            #     plt.title('Self-Attention Weights')
+            #     plt.xlabel('Key Position')
+            #     plt.ylabel('Query Position')
+            #     plt.savefig(os.path.join(save_dir, f"attention_epoch_{epoch}_batch_{i}.png"))
+            #     plt.close()
+            
             if i >= 30:  # Limit to first 30     batches
                 break  # Only process the 5 batch
 
@@ -117,6 +141,7 @@ def train_lstm_model(
     _case   = utils.config['Dataset']['embedding']['positional_encoding']
     Ref     = utils.config['Dataset']['reflection_removal']
     ID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
+    # ID = _Ds.id
     model_name_AE = f"CNN_AE_{utils.config['Training']['Constant_feature_AE']['AutoEncoder_layers']}_{utils.config['Training']['Constant_feature_AE']['Architecture']}_{_case}_{proj_dim}_{Ref=}_{ID}"
     
     model_name_AE = model_name_AE.replace('_Ref','_self.Ref')
@@ -130,13 +155,13 @@ def train_lstm_model(
 
     model = networks.AutoEncoder_CNN_LSTM.Encoder_LSTM(
         address_autoencoder = AE_Address,
-        proj_dim            = proj_dim,  # Adjust based on your data
+        proj_dim             = proj_dim,  # Adjust based on your data
         LSTMEmbdSize        = LSTMEmbdSize,
         hidden_dim          = hidden_dim,  # Adjust based on your model architecture
         num_layers          = utils.config['Training']['Constant_feature_LSTM']['Num_layers'],  # Number of LSTM layers
         dropout             = utils.config['Training']['Constant_feature_LSTM']['DropOut'],  # Dropout rate
-        sequence_length     = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
         Autoencoder_CNN     = Autoencoder_CNN,
+        # S4_size=None
     )
 
 
@@ -187,7 +212,7 @@ def train_lstm_model(
         ckpt_path=None,
         report_path=os.path.join(os.path.dirname(__file__),'Output','LSTM', 'training_report.csv'),
 
-        lr_scheduler = lr_scheduler,
+        lr_scheduler            = lr_scheduler,
         epochs                  = utils.config['Training']['num_epochs'],
         ckpt_save_freq          = utils.config['Training']['checkpoint_save_freq'],
         use_hard_negative_mining= utils.config['Training']['hard_negative_mining'],
@@ -200,7 +225,7 @@ if __name__ == "__main__":
     ImageSize: Tuple[int, int] = (201,201)
     proj_dim = 1024
     LSTMEmbdSize = proj_dim
-    Autoencoder_CNN = networks.Autoencoder_CNNV1_0
+    Autoencoder_CNN = networks.Autoencoder_CNN
     
     
     
@@ -210,6 +235,7 @@ if __name__ == "__main__":
             
         #     for sequence in utils.config['Training']['Constant_feature_LSTM']['valid_window_Lenght']:
         #         utils.config['Training']['Constant_feature_LSTM']['window_Lenght'] = sequence
+        utils.config['Dataset']['embedding']['positional_encoding'] = case
         train_lstm_model(
                         hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
                         _case=case,

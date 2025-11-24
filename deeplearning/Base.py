@@ -485,8 +485,8 @@ def train(
                 }
                 report = pd.concat([report, pd.DataFrame([new_row])], ignore_index=True)
 
-                if batch_idx % 10 == 0:
-                    monitor_gpu_temperature(threshold=GPU_temperature, sleep_seconds=GPU_overheat_sleep)
+                # if batch_idx % 10 == 0:
+                #     monitor_gpu_temperature(threshold=GPU_temperature, sleep_seconds=GPU_overheat_sleep)
 
         # ----------------- PLOT one point per epoch -----------------
         if plotter is not None:

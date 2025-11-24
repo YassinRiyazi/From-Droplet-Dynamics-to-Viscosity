@@ -53,7 +53,7 @@ Training:
     learning_rate: 1e-4
     Hidden_size: 256
     Num_layers: 2
-    DropOut: 0.3
+    DropOut: 0.1
     Stride                : 10 #10
     window_Lenght         : 10
     valid_embedding       : [128, 256]

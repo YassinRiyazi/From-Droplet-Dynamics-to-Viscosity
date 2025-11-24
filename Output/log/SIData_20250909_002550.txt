@@ -1,0 +1,6 @@
+Parameters: stride=4, sequence_length=1, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Minimum length across fluids: 1418
+Minimum length across fluids: 793
+Processing case: DropCoordinate
+Parameters: stride=4, sequence_length=1, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Mean SI: 0.6870350937048594

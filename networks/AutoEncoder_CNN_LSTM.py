@@ -139,9 +139,6 @@ class Encoder_LSTM(torch.nn.Module):
                               dropout=dropout).to(self.device)
         # self.proj   = nn.Linear(proj_dim, LSTMEmbdSize, device=self.device)
         # self.relu   = nn.ReLU()
-
-        # adding input batch normalization
-        self.input_bn = nn.BatchNorm1d(LSTMEmbdSize).to(self.device)
         return None
     
     def _encoder(self,x:torch.Tensor) -> torch.Tensor:
@@ -166,16 +163,9 @@ class Encoder_LSTM(torch.nn.Module):
         Returns:
             torch.Tensor: Output tensor of shape (batch_size, hidden_dim)
         """
-
         if self.autoencoder:
             x = self._encoder(x)
 
-        # Apply batch normalization
-        batch_size, seq_length, feature_dim = x.size()
-        x = x.view(-1, feature_dim)  # (batch_size * seq_length, feature_dim)
-        x = self.input_bn(x)
-        x = x.view(batch_size, seq_length, feature_dim)  # (batch_size, seq_length, feature_dim)
-        
         # x = self.relu(self.proj(x))
 
         # Apply LayerNorm directly (no flattening needed)

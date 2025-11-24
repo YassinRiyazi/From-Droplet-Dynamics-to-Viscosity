@@ -132,10 +132,11 @@ def train_lstm_model(
         address_autoencoder = AE_Address,
         proj_dim            = proj_dim,  # Adjust based on your data
         LSTMEmbdSize        = LSTMEmbdSize,
-        hidden_dim          = hidden_dim,  # Adjust based on your model architecture
-        num_layers          = utils.config['Training']['Constant_feature_LSTM']['Num_layers'],  # Number of LSTM layers
-        dropout             = utils.config['Training']['Constant_feature_LSTM']['DropOut'],  # Dropout rate
+        hidden_dim          = 128,# hidden_dim,  # Adjust based on your model architecture
+        num_layers          = 1, #utils.config['Training']['Constant_feature_LSTM']['Num_layers'],  # Number of LSTM layers
+        dropout             = 0, #utils.config['Training']['Constant_feature_LSTM']['DropOut'],  # Dropout rate
         Autoencoder_CNN     = None if Autoencoder_CNN is None else Autoencoder_CNN,
+        use_attention=True  # NEW PARAMETER
     )
 
 
@@ -149,7 +150,7 @@ def train_lstm_model(
     train_loader = DataLoader(train_set, batch_size=batch_size, num_workers=num_workers,
                                shuffle=True, pin_memory=True)
     val_loader   = DataLoader(val_set, batch_size=batch_size, num_workers=num_workers,
-                               shuffle=False, pin_memory=True)
+                               shuffle=True, pin_memory=True)
   
 
     optimizer = torch.optim.AdamW(model.parameters(),
@@ -192,9 +193,8 @@ def train_lstm_model(
 
 if __name__ == "__main__":
 
-    proj_dim = 11
+    proj_dim = 11-1
     LSTMEmbdSize = proj_dim
-    Autoencoder_CNN = networks.Autoencoder_CNN
     
     
     

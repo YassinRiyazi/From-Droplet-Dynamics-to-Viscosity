@@ -1,0 +1,41 @@
+Parameters: stride=4, sequence_length=10, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Minimum length across fluids: 5410
+Minimum length across fluids: 2752
+Processing case: default
+Parameters: stride=4, sequence_length=1, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Mean SI: 0.6878627662534837
+Minimum length across fluids: 5321
+Minimum length across fluids: 2709
+Processing case: default
+Parameters: stride=4, sequence_length=10, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Mean SI: 0.6898800047961149
+Minimum length across fluids: 5410
+Minimum length across fluids: 2752
+Processing case: Position
+Parameters: stride=4, sequence_length=1, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Mean SI: 0.7300910389578188
+Minimum length across fluids: 5321
+Minimum length across fluids: 2709
+Processing case: Position
+Parameters: stride=4, sequence_length=10, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Mean SI: 0.7408483804355968
+Minimum length across fluids: 5410
+Minimum length across fluids: 2752
+Processing case: Velocity
+Parameters: stride=4, sequence_length=1, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Mean SI: 0.8520604919045518
+Minimum length across fluids: 5321
+Minimum length across fluids: 2709
+Processing case: Velocity
+Parameters: stride=4, sequence_length=10, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Mean SI: 0.8548921232873743
+Minimum length across fluids: 5410
+Minimum length across fluids: 2752
+Processing case: NoRef
+Parameters: stride=4, sequence_length=1, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Mean SI: 0.689413664144871
+Minimum length across fluids: 5321
+Minimum length across fluids: 2709
+Processing case: NoRef
+Parameters: stride=4, sequence_length=10, batch_size=64, hidden_dim=256, CnnAutoEncoderEmbdSize=1024, skipIndex=100
+Mean SI: 0.69383389164101

@@ -304,8 +304,10 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
 
         _lenght = len(self.DataAddress[idx][1])
         tilt = np.full((_lenght, 1), tilt)
-        SROF = np.concatenate((np.full((_lenght, 1), tilt),
-                               self.DataAddress[idx][2],SROF,
+        SROF = np.concatenate(
+            (np.full((_lenght, 1), tilt), 
+             self.DataAddress[idx][2],
+             SROF[:,:-1],
                                ), axis=1)
         # SROF = self.transform2(SROF).squeeze(0)  # shape: (seq_len, 1, features)
 
@@ -378,7 +380,6 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             seq_reflection_tensor = torch.stack(seq_reflection)
             return seq_tensor, seq_reflection_tensor
     
-
     def reflection_detection(self, img_u8:NDArray[np.float32]) -> NDArray[np.int8]:
         img_u8 = cv2.normalize(img_u8, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
 
