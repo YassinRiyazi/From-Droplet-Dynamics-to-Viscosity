@@ -138,6 +138,8 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
                  dirs: BatchAddress,
                  seq_len: int,
                  stride: int,
+                 srof_mean: np.ndarray | None = None,
+                 srof_std: np.ndarray | None = None,
                  ):
         """
         Initialize the dataset by loading all files from the specified folder.
@@ -147,6 +149,8 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             seq_len (int, optional): Length of the sequence to be extracted from the time series.
             stride (int, optional): Step size for extracting sequences.
             extension (str, optional): File extension of the time series files to be loaded.
+            srof_mean (np.ndarray, optional): Mean values for SROF normalization.
+            srof_std (np.ndarray, optional): Std values for SROF normalization.
 
         Caution:
             Ensure that the DataHandler function is properly defined and can handle the loading of your specific data format.
@@ -170,6 +174,10 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             self.embedID        = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_"
 
         self.embedding_file:dict[int, NDArray[np.uint8] | None] = {}
+        
+        # Store normalization statistics
+        self.srof_mean = srof_mean
+        self.srof_std = srof_std
 
         self.seq_len        = seq_len
         self.stride         = stride
@@ -303,15 +311,26 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         count           = self.DataAddress[idx][5]
 
         _lenght = len(self.DataAddress[idx][1])
-        tilt = np.full((_lenght, 1), tilt)
         
-        SROF = np.concatenate(
-            (np.full((_lenght, 50), tilt), 
-             np.full((_lenght, 50), count), 
-             self.DataAddress[idx][2],
-             SROF[:,:],
-                               ), axis=1)
-        # SROF = self.transform2(SROF).squeeze(0)  # shape: (seq_len, 1, features)
+        # Create tilt and count columns (single column instead of 50 duplicates)
+        tilt_col = np.full((_lenght, 1), tilt, dtype=np.float32)
+        count_col = np.full((_lenght, 1), count, dtype=np.float32)
+        
+        # Concatenate: drop_position (2 cols) + SROF features (8 cols) = 10 features
+        SROF_combined = np.concatenate(
+            (self.DataAddress[idx][2],  # drop_position (x, y centers)
+             SROF[:,:],                  # 8 SROF features
+            ), axis=1)
+        
+        # Apply normalization if statistics are available
+        if self.srof_mean is not None and self.srof_std is not None:
+            # Normalize SROF features (but NOT tilt/count which will be added after)
+            SROF_combined = (SROF_combined - self.srof_mean) / self.srof_std
+        
+        # Now add normalized tilt and count as single columns
+        count_col = count_col / 5000
+        tilt_col = tilt_col / 90
+        SROF_final = np.concatenate((tilt_col, count_col, SROF_combined), axis=1)
 
         for file_path, drop_position in zip(self.DataAddress[idx][1],self.DataAddress[idx][2]):
             pil = Image.open(file_path).convert("L")
@@ -334,7 +353,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         seq_tensor = torch.stack(seq)
         return (seq_tensor,
                 torch.tensor(viscosity, dtype=torch.float32),
-                torch.tensor(SROF, dtype=torch.float32),
+                torch.tensor(SROF_final, dtype=torch.float32),
                 # torch.tensor(drop_position, dtype=torch.int16),
                 # torch.tensor(tilt, dtype=torch.int16)
                 )

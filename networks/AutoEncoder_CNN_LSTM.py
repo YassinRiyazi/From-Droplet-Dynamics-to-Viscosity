@@ -162,14 +162,25 @@ class Encoder_LSTM(torch.nn.Module):
             x (torch.Tensor): Input tensor of shape (batch_size, seq_length, input_dim)
         Returns:
             torch.Tensor: Output tensor of shape (batch_size, hidden_dim)
+        
+        Note:
+            SROF features (input[:,:,2:]) are pre-normalized with global mean/std from dataset.
+            LayerNorm applies per-sample normalization, which may interfere with learned global distributions.
+            Consider removing LayerNorm or applying it only during initial training phases.
         """
         if self.autoencoder:
             x = self._encoder(x)
 
         # x = self.relu(self.proj(x))
 
-        # Apply LayerNorm directly (no flattening needed)
-        x = self.LN(x)
+        # OPTION 1 (RECOMMENDED): Skip LayerNorm since data is already globally normalized
+        # Features are pre-normalized in dataset with consistent mean/std across splits
+        # x = self.LN(x)  # DISABLED: data already normalized
+        
+        # # OPTION 2 (ALTERNATIVE): Keep LayerNorm but be aware it re-normalizes per sample
+        # # This can be beneficial for stability but loses global distribution info
+        # x = self.LN(x)  # Per-sample normalization (mean=0, std=1 within each sample)
+        
         out = self.lstm(x)  # (batch_size, 1)
         return out.squeeze(1)  # (batch_size,)
     

@@ -197,16 +197,19 @@ def save_reconstructions(model: nn.Module,
 
 
 def train_transformer_model(
-    _case: str,
-    ImageSize: Tuple[int, int],
-    proj_dim: int,
-    input_dim: int,
-    skip: int = utils.config['Training']['Constant_feature_LSTM']['Stride'],
-    SEQUENCE_LENGTH: int = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
-    d_model: int = 256,
-    nhead: int = 8,
-    num_layers: int = 4,
-    Autoencoder_CNN: torch.nn.modules = None
+    _case:      str,
+    proj_dim:   int,
+    input_dim:  int,
+    
+    # TODO: Make these configurable via utils.config
+    d_model: int            = 256,
+    nhead: int              = 8,
+    num_layers: int         = 4,
+
+
+    skip: int               = utils.config['Training']['Constant_feature_LSTM']['Stride'],
+    SEQUENCE_LENGTH: int    = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
+    Autoencoder_CNN: torch.nn.Module | None = None
 ) -> None:
     
     _Ds = utils.data_set()
@@ -227,6 +230,8 @@ def train_transformer_model(
     
     if len(model_addresses) == 1:
         AE_Address = model_addresses[0]
+    elif Autoencoder_CNN is None:
+        AE_Address = None
     else:
         raise ValueError(f"Expected exactly one checkpoint for '{model_name_AE}', found {len(model_addresses)}.")
     
@@ -245,7 +250,7 @@ def train_transformer_model(
         dim_feedforward=d_model * 4,
         dropout=utils.config['Training']['Constant_feature_LSTM']['DropOut'],
         Autoencoder_CNN=Autoencoder_CNN,
-        S4_size=110
+        S4_size=12
     )
     
     # DataLoaders
@@ -295,7 +300,6 @@ def train_transformer_model(
 
 
 if __name__ == "__main__":
-    ImageSize: Tuple[int, int] = (201, 201)
     proj_dim = 1024
     input_dim = proj_dim
     Autoencoder_CNN = networks.Autoencoder_CNN
@@ -307,8 +311,7 @@ if __name__ == "__main__":
             nhead=8,  # Number of attention heads
             num_layers=4,  # Number of transformer layers
             _case=case,
-            ImageSize=ImageSize,
             input_dim=input_dim,
             proj_dim=proj_dim,
-            Autoencoder_CNN=Autoencoder_CNN,
+            Autoencoder_CNN=None,
         )

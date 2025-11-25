@@ -104,7 +104,9 @@ def train_lstm_model(
                      SEQUENCE_LENGTH:int = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
                      hidden_dim:int = 256,
                      Autoencoder_CNN: torch.nn.Module | None = None) -> None:
-  
+    utils.config['Training']['Constant_feature_LSTM']['learning_rate'] = 1e-3
+
+
     _Ds = utils.data_set()
     _Ds.load_addresses()
     train_set, val_set = _Ds.load_datasets(embedding_dim=proj_dim,
@@ -136,7 +138,7 @@ def train_lstm_model(
         num_layers          = 1, #utils.config['Training']['Constant_feature_LSTM']['Num_layers'],  # Number of LSTM layers
         dropout             = 0, #utils.config['Training']['Constant_feature_LSTM']['DropOut'],  # Dropout rate
         Autoencoder_CNN     = None if Autoencoder_CNN is None else Autoencoder_CNN,
-        use_attention=True  # NEW PARAMETER
+        # use_attention=True  # NEW PARAMETER
     )
 
 
@@ -193,7 +195,7 @@ def train_lstm_model(
 
 if __name__ == "__main__":
 
-    proj_dim = 11-1
+    proj_dim = 12
     LSTMEmbdSize = proj_dim
     
     

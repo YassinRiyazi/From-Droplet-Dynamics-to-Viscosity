@@ -82,6 +82,15 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
 
         self._MaximumViscosityGetter = self.MaximumViscosityGetter()
         print(f"Maximum viscosity in dataset: {self._MaximumViscosityGetter}")
+        
+        # Compute normalization statistics across all daughters
+        self.compute_normalization_stats()
+        print(f"Computed normalization stats: SROF shape {self.srof_mean.shape}")
+        
+        # Propagate normalization stats back to all daughter datasets
+        for daughter in self.DaughterSets.values():
+            daughter.srof_mean = self.srof_mean
+            daughter.srof_std = self.srof_std
 
     def save_cache(self, filepath: str) -> None:
         """
@@ -92,6 +101,7 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         - Precomputed DataAddress lists from each DaughterFolderDataset
         - Dataset length and maximum viscosity
         - Precomputed embedding_file dictionaries to avoid regenerating embeddings
+        - Normalization statistics (SROF mean/std)
         
         This allows fast loading without re-scanning directories and CSVs.
         
@@ -105,7 +115,9 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
             'sequence_length': self.sequence_length,
             'maximum_viscosity': self._MaximumViscosityGetter,
             'daughter_data': {},
-            'embedding_files': {}
+            'embedding_files': {},
+            'srof_mean': self.srof_mean,
+            'srof_std': self.srof_std,
         }
         
         # Extract DataAddress lists and embedding_file dictionaries from each DaughterFolderDataset
@@ -147,6 +159,10 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         self._len                   = cache['len']
         self._MaximumViscosityGetter = cache['maximum_viscosity']
         
+        # Restore normalization statistics
+        self.srof_mean = cache.get('srof_mean', np.zeros(10, dtype=np.float32))
+        self.srof_std = cache.get('srof_std', np.ones(10, dtype=np.float32))
+        
         # Reconstruct DaughterSets using cached DataAddress lists
         # from .DaughterFolderDataset import DaughterFolderDataset
         
@@ -158,7 +174,8 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         
         class _CachedDaughter(DaughterFolderDataset):
             """Lightweight replacement for DaughterFolderDataset that reuses cached data"""
-            def __init__(inner_self, dataaddress: list, embedding_file_cache: dict, proto_ref: Any):
+            def __init__(inner_self, dataaddress: list, embedding_file_cache: dict, proto_ref: Any, 
+                        srof_mean: np.ndarray | None, srof_std: np.ndarray | None):
                 # Inherit attributes from prototype to ensure full compatibility
                 # This copies all attributes initialized from config in DaughterFolderDataset
                 if proto_ref is not None:
@@ -171,16 +188,22 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
                 
                 # Restore embedding_file dictionary from cache instead of regenerating
                 inner_self.embedding_file = embedding_file_cache
+                
+                # Set normalization statistics
+                inner_self.srof_mean = srof_mean
+                inner_self.srof_std = srof_std
 
             
         # Rebuild DaughterSets from cached data
         self.DaughterSets = {}
         for fluid, dataaddr in cache['daughter_data'].items():
             embedding_cache = cache.get('embedding_files', {}).get(fluid, {})
-            self.DaughterSets[fluid] = _CachedDaughter(dataaddr, embedding_cache, proto)
+            self.DaughterSets[fluid] = _CachedDaughter(dataaddr, embedding_cache, proto, 
+                                                      self.srof_mean, self.srof_std)
         
         print(f"Dataset loaded from cache: {filepath}")
         print(f"Maximum viscosity in dataset: {self._MaximumViscosityGetter}")
+        print(f"Normalization stats: SROF mean shape {self.srof_mean.shape}, std shape {self.srof_std.shape}")
         
         return self
 
@@ -191,6 +214,52 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
             if viscosity > maxViscosity:
                 maxViscosity = viscosity
         return maxViscosity
+
+    def compute_normalization_stats(self) -> None:
+        """
+        Compute global mean and std for SROF features across all daughter datasets.
+        This ensures consistent normalization across train/val/test splits.
+        
+        Statistics are computed column-wise and stored as:
+        - self.srof_mean: mean values for each feature (drop_position + SROF)
+        - self.srof_std: standard deviation for each feature (with epsilon for stability)
+        
+        Features normalized: drop_position (2 cols) + SROF (8 cols) = 10 total
+        """
+        all_combined: list[np.ndarray] = []
+        
+        # Collect all drop_position + SROF data from all daughters
+        for daughter in self.DaughterSets.values():
+            for data_item in daughter.DataAddress:
+                drop_position = data_item[2]  # Drop position (x, y centers) at index 2
+                srof_slice = data_item[3]     # SROF is at index 3 in DaughterSet_internal_
+                
+                # Concatenate drop_position + SROF to match what __getitem__ does
+                combined = np.concatenate((drop_position, srof_slice), axis=1)
+                all_combined.append(combined)
+        
+        if len(all_combined) == 0:
+            print("Warning: No SROF data found for normalization")
+            self.srof_mean = np.zeros(10, dtype=np.float32)  # 2 drop_pos + 8 SROF
+            self.srof_std = np.ones(10, dtype=np.float32)
+            return
+        
+        # Stack all combined slices (each is [seq_len, 10 features])
+        # Flatten to [total_frames, 10 features] for global statistics
+        all_combined_stacked = np.vstack(all_combined)  # Shape: [total_frames, 10]
+        
+        # Compute global statistics
+        self.srof_mean = np.mean(all_combined_stacked, axis=0, dtype=np.float32)
+        self.srof_std = np.std(all_combined_stacked, axis=0, dtype=np.float32)
+        
+        # Add epsilon to prevent division by zero
+        epsilon = 1e-8
+        self.srof_std = np.where(self.srof_std < epsilon, 1.0, self.srof_std)
+        
+        print(f"Normalization stats computed from {all_combined_stacked.shape[0]} frames")
+        print(f"  Combined features (drop_pos + SROF) mean shape: {self.srof_mean.shape}")
+        print(f"  Mean: {self.srof_mean}")
+        print(f"  Std: {self.srof_std}")
 
     def DaughterSetLoader(self,
                           dicAddresses: StringListDict,
@@ -208,10 +277,14 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         for fluid, dirs in kk:
             
             kk.set_postfix({"Loading DaughterSet for fluid": fluid}) #type:ignore Updated to show fluid name
-            self.DaughterSets[fluid] = DaughterFolderDataset(dirs,
-                                                            seq_len=self.sequence_length,
-                                                            stride=self.stride,
-                                                            )
+            # Pass normalization stats if available (will be None on first load)
+            self.DaughterSets[fluid] = DaughterFolderDataset(
+                dirs,
+                seq_len=self.sequence_length,
+                stride=self.stride,
+                srof_mean=getattr(self, 'srof_mean', None),
+                srof_std=getattr(self, 'srof_std', None)
+            )
             if self.DaughterSets[fluid].__len__() == 0:
                 if verbose:
                     print(f"Fluid {fluid} with viscosity {fluid} has no images and therefore has no effect on training.")

@@ -285,7 +285,10 @@ class Encoder_Transformer(nn.Module):
             (batch,) - predicted viscosity
         """
         # Extract embeddings
-        embeddings = self._encoder(x)  # (batch, seq_len, embedding_dim)
+        if hasattr(self, 'autoencoder') and self.autoencoder is not None:
+            embeddings = self._encoder(x)  # (batch, seq_len, embedding_dim)
+        else:
+            embeddings = x  # Assume input is already embeddings
         
         # Concatenate with additional features
         if x_additional is not None and self.feature_norm is not None:

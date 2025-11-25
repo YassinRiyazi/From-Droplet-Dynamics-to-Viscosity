@@ -54,8 +54,8 @@ Training:
     Hidden_size: 256
     Num_layers: 2
     DropOut: 0.1
-    Stride                : 10 #10
-    window_Lenght         : 10
+    Stride                : 4 #10
+    window_Lenght         : 1
     valid_embedding       : [128, 256]
     valid_window_Lenght   : [1, 10]
 
