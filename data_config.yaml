@@ -1,0 +1,17 @@
+features:
+  tilt_angle: 0
+  frame_count: 0
+
+  drop_position:
+    x_center: 0
+    y_center: 0
+    
+  srof:
+    time: true
+    x_center: true
+    y_center: true
+    adv: true
+    rec: true
+    middle_angle_degree: true
+    contact_line_length: true
+    velocity: true

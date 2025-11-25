@@ -33,12 +33,12 @@ sys.path.append(__file__)
 import utils
 
 if __name__ == "__main__":
-    from    header                  import  StringListDict, setSeed, DaughterSet_getitem_
+    from    header                  import  StringListDict, setSeed, DaughterSet_getitem_, FeatureSelection
     from    DaughterFolderDataset   import  DaughterFolderDataset
     from    light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
 
 else:
-    from    .header                 import  StringListDict, setSeed, DaughterSet_getitem_
+    from    .header                 import  StringListDict, setSeed, DaughterSet_getitem_, FeatureSelection
     from    .DaughterFolderDataset  import  DaughterFolderDataset
     from    .light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
 
@@ -61,6 +61,7 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
                  dicAddresses: StringListDict ,
                  stride: int = 1,
                  sequence_length: int = 1,  # New parameter for sequence length
+                 feature_config: Dict[str, Any] | None = None,
                  ) -> None:
         """
         Args:
@@ -71,13 +72,18 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
 
         """
         setSeed(42)
+        self.feature_selection = FeatureSelection.from_config(feature_config)
+        self.feature_config = self.feature_selection.to_config()
+        self.feature_names = self.feature_selection.final_feature_names
+        self.feature_signature = self._feature_signature_from_selection(self.feature_selection)
+
         # self.data_dir = data_dir
         self.stride = stride
         self.sequence_length = sequence_length
         self.dicAddresses = dicAddresses
 
         # Fallback: regenerate from scratch
-        self.DaughterSetLoader(self.dicAddresses)
+        self.DaughterSetLoader(self.dicAddresses, feature_selection=self.feature_selection)
         self.splits = None
 
         self._MaximumViscosityGetter = self.MaximumViscosityGetter()
@@ -91,6 +97,44 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         for daughter in self.DaughterSets.values():
             daughter.srof_mean = self.srof_mean
             daughter.srof_std = self.srof_std
+            daughter.feature_selection = self.feature_selection
+            daughter.feature_names = self.feature_names
+            daughter.combined_feature_dim = self.feature_selection.combined_size
+            daughter.final_feature_dim = self.feature_selection.final_size
+
+    @property
+    def feature_dim(self) -> int:
+        return self.feature_selection.final_size
+
+    @property
+    def combined_feature_dim(self) -> int:
+        return self.feature_selection.combined_size
+
+    @staticmethod
+    def _feature_signature_from_selection(selection: FeatureSelection) -> str:
+        parts: list[str] = []
+        parts.append(f"tilt{int(selection.use_tilt)}")
+        parts.append(f"count{int(selection.use_count)}")
+        drop_pairs = (
+            (selection.drop_flags[0], "dropx"),
+            (selection.drop_flags[1], "dropy"),
+        )
+        for enabled, short in drop_pairs:
+            parts.append(f"{short}{int(enabled)}")
+
+        srof_pairs = [
+            (selection.srof_flags[0], "t"),
+            (selection.srof_flags[1], "xc"),
+            (selection.srof_flags[2], "yc"),
+            (selection.srof_flags[3], "adv"),
+            (selection.srof_flags[4], "rec"),
+            (selection.srof_flags[5], "mid"),
+            (selection.srof_flags[6], "cll"),
+            (selection.srof_flags[7], "vel"),
+        ]
+        for enabled, short in srof_pairs:
+            parts.append(f"{short}{int(enabled)}")
+        return "_".join(parts)
 
     def save_cache(self, filepath: str) -> None:
         """
@@ -118,6 +162,7 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
             'embedding_files': {},
             'srof_mean': self.srof_mean,
             'srof_std': self.srof_std,
+            'feature_selection': self.feature_config,
         }
         
         # Extract DataAddress lists and embedding_file dictionaries from each DaughterFolderDataset
@@ -131,7 +176,7 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         print(f"Dataset cache saved to: {filepath}")
 
     @classmethod
-    def load_cache(cls, filepath: str) -> 'MotherFolderDataset':
+    def load_cache(cls, filepath: str, feature_config: Dict[str, Any] | None = None) -> 'MotherFolderDataset':
         """
         Quickly reconstruct a MotherFolderDataset from a previously saved cache.
         
@@ -158,30 +203,62 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         self.splits                 = None
         self._len                   = cache['len']
         self._MaximumViscosityGetter = cache['maximum_viscosity']
-        
+
+        cached_selection = FeatureSelection.from_config(cache.get('feature_selection'))
+        requested_selection = FeatureSelection.from_config(feature_config)
+        if feature_config is None:
+            self.feature_selection = cached_selection
+        else:
+            if cached_selection != requested_selection:
+                raise ValueError(
+                    "Cached dataset feature configuration does not match requested configuration. "
+                    "Please regenerate the cache or specify matching settings."
+                )
+            self.feature_selection = requested_selection
+
+        self.feature_config = self.feature_selection.to_config()
+        self.feature_names = self.feature_selection.final_feature_names
+        self.feature_signature = self._feature_signature_from_selection(self.feature_selection)
+
         # Restore normalization statistics
-        self.srof_mean = cache.get('srof_mean', np.zeros(10, dtype=np.float32))
-        self.srof_std = cache.get('srof_std', np.ones(10, dtype=np.float32))
+        default_mean = np.zeros(self.feature_selection.combined_size, dtype=np.float32)
+        default_std = np.ones(self.feature_selection.combined_size, dtype=np.float32)
+        self.srof_mean = cache.get('srof_mean', default_mean)
+        self.srof_std = cache.get('srof_std', default_std)
         
         # Reconstruct DaughterSets using cached DataAddress lists
         # from .DaughterFolderDataset import DaughterFolderDataset
         
         # Create a prototype to get config-dependent attributes
         try:
-            proto = DaughterFolderDataset(dirs=[], seq_len=self.sequence_length, stride=self.stride)
+            proto = DaughterFolderDataset(
+                dirs=[],
+                seq_len=self.sequence_length,
+                stride=self.stride,
+                srof_mean=self.srof_mean,
+                srof_std=self.srof_std,
+                feature_selection=self.feature_selection,
+            )
         except:
             proto = None
         
         class _CachedDaughter(DaughterFolderDataset):
             """Lightweight replacement for DaughterFolderDataset that reuses cached data"""
             def __init__(inner_self, dataaddress: list, embedding_file_cache: dict, proto_ref: Any, 
-                        srof_mean: np.ndarray | None, srof_std: np.ndarray | None):
+                        srof_mean: np.ndarray | None, srof_std: np.ndarray | None, selection: FeatureSelection):
                 # Inherit attributes from prototype to ensure full compatibility
                 # This copies all attributes initialized from config in DaughterFolderDataset
                 if proto_ref is not None:
                     inner_self.__dict__.update(proto_ref.__dict__)
                 else:
-                    super().__init__(dirs=[], seq_len=self.sequence_length, stride=self.stride)
+                    super().__init__(
+                        dirs=[],
+                        seq_len=self.sequence_length,
+                        stride=self.stride,
+                        srof_mean=srof_mean,
+                        srof_std=srof_std,
+                        feature_selection=selection,
+                    )
                 
                 # Override DataAddress with cached data
                 inner_self.DataAddress = dataaddress
@@ -192,6 +269,10 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
                 # Set normalization statistics
                 inner_self.srof_mean = srof_mean
                 inner_self.srof_std = srof_std
+                inner_self.feature_selection = selection
+                inner_self.feature_names = selection.final_feature_names
+                inner_self.combined_feature_dim = selection.combined_size
+                inner_self.final_feature_dim = selection.final_size
 
             
         # Rebuild DaughterSets from cached data
@@ -199,7 +280,7 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         for fluid, dataaddr in cache['daughter_data'].items():
             embedding_cache = cache.get('embedding_files', {}).get(fluid, {})
             self.DaughterSets[fluid] = _CachedDaughter(dataaddr, embedding_cache, proto, 
-                                                      self.srof_mean, self.srof_std)
+                                                      self.srof_mean, self.srof_std, self.feature_selection)
         
         print(f"Dataset loaded from cache: {filepath}")
         print(f"Maximum viscosity in dataset: {self._MaximumViscosityGetter}")
@@ -224,46 +305,53 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
         - self.srof_mean: mean values for each feature (drop_position + SROF)
         - self.srof_std: standard deviation for each feature (with epsilon for stability)
         
-        Features normalized: drop_position (2 cols) + SROF (8 cols) = 10 total
+        Features normalized follow the configured subset of drop_position and SROF features.
         """
-        all_combined: list[np.ndarray] = []
-        
-        # Collect all drop_position + SROF data from all daughters
+        feature_dim = self.feature_selection.combined_size
+        if feature_dim == 0:
+            self.srof_mean = np.zeros(0, dtype=np.float32)
+            self.srof_std = np.ones(0, dtype=np.float32)
+            print("Feature selection excludes drop_position and SROF; skipping normalization stats computation.")
+            return
+
+        collected: list[np.ndarray] = []
+
+        drop_idx = self.feature_selection.drop_indices
+        srof_idx = self.feature_selection.srof_indices
+
         for daughter in self.DaughterSets.values():
             for data_item in daughter.DataAddress:
-                drop_position = data_item[2]  # Drop position (x, y centers) at index 2
-                srof_slice = data_item[3]     # SROF is at index 3 in DaughterSet_internal_
-                
-                # Concatenate drop_position + SROF to match what __getitem__ does
-                combined = np.concatenate((drop_position, srof_slice), axis=1)
-                all_combined.append(combined)
-        
-        if len(all_combined) == 0:
-            print("Warning: No SROF data found for normalization")
-            self.srof_mean = np.zeros(10, dtype=np.float32)  # 2 drop_pos + 8 SROF
-            self.srof_std = np.ones(10, dtype=np.float32)
+                parts: list[np.ndarray] = []
+                if drop_idx:
+                    parts.append(data_item[2][:, drop_idx])
+                if srof_idx:
+                    parts.append(data_item[3][:, srof_idx])
+                if parts:
+                    combined = np.concatenate(parts, axis=1).astype(np.float32, copy=False)
+                    collected.append(combined)
+
+        if not collected:
+            print("Warning: No feature data found for normalization")
+            self.srof_mean = np.zeros(feature_dim, dtype=np.float32)
+            self.srof_std = np.ones(feature_dim, dtype=np.float32)
             return
-        
-        # Stack all combined slices (each is [seq_len, 10 features])
-        # Flatten to [total_frames, 10 features] for global statistics
-        all_combined_stacked = np.vstack(all_combined)  # Shape: [total_frames, 10]
-        
-        # Compute global statistics
-        self.srof_mean = np.mean(all_combined_stacked, axis=0, dtype=np.float32)
-        self.srof_std = np.std(all_combined_stacked, axis=0, dtype=np.float32)
-        
-        # Add epsilon to prevent division by zero
+
+        stacked = np.vstack(collected)
+        self.srof_mean = np.mean(stacked, axis=0, dtype=np.float32)
+        self.srof_std = np.std(stacked, axis=0, dtype=np.float32)
+
         epsilon = 1e-8
         self.srof_std = np.where(self.srof_std < epsilon, 1.0, self.srof_std)
-        
-        print(f"Normalization stats computed from {all_combined_stacked.shape[0]} frames")
-        print(f"  Combined features (drop_pos + SROF) mean shape: {self.srof_mean.shape}")
+
+        print(f"Normalization stats computed from {stacked.shape[0]} frames")
+        print(f"  Selected feature count: {feature_dim}")
         print(f"  Mean: {self.srof_mean}")
         print(f"  Std: {self.srof_std}")
 
     def DaughterSetLoader(self,
                           dicAddresses: StringListDict,
-                          verbose: bool = True) -> None:
+                          verbose: bool = True,
+                          feature_selection: FeatureSelection | None = None) -> None:
         """
         Provide a dictionary of fluid name as key and experiment repetition in a list
         Caution:
@@ -283,7 +371,8 @@ class MotherFolderDataset(Dataset[DaughterSet_getitem_]):
                 seq_len=self.sequence_length,
                 stride=self.stride,
                 srof_mean=getattr(self, 'srof_mean', None),
-                srof_std=getattr(self, 'srof_std', None)
+                srof_std=getattr(self, 'srof_std', None),
+                feature_selection=feature_selection,
             )
             if self.DaughterSets[fluid].__len__() == 0:
                 if verbose:
@@ -501,7 +590,10 @@ if __name__ == "__main__":
     # ===== TRAINING DATASET =====
     if os.path.exists(cache_train):
         print("Loading TRAINING dataset from cache...")
-        train_dataset = MotherFolderDataset.load_cache(cache_train)
+        train_dataset = MotherFolderDataset.load_cache(
+            cache_train,
+            feature_config=utils.data_config.get('features', {})
+        )
 
         item = train_dataset[100]
         train_dataset.reflectionReturn_Setter(state=False)
@@ -549,7 +641,10 @@ if __name__ == "__main__":
 
     if os.path.exists(cache_val):
         print("Loading VALIDATION dataset from cache...")
-        val_dataset = MotherFolderDataset.load_cache(cache_val)
+        val_dataset = MotherFolderDataset.load_cache(
+            cache_val,
+            feature_config=utils.data_config.get('features', {})
+        )
     else:
         print("Creating VALIDATION dataset from scratch...")
         val_dataset = MotherFolderDataset(

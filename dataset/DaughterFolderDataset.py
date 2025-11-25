@@ -65,13 +65,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if __name__ == "__main__":
     from positional_encoding.PositionalImageGenerator import PE_Generator
     from light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
-    from    header                  import  BatchAddress, DataSetData, DaughterSet_internal_, DaughterSet_getitem_ # type: ignore
+    from    header                  import  BatchAddress, DataSetData, DaughterSet_internal_, DaughterSet_getitem_, FeatureSelection # type: ignore
 else:
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
     sys.path.append(os.path.abspath(__file__))
     from positional_encoding.PositionalImageGenerator import PE_Generator
     from light_source.LightSourceReflectionRemoving import LightSourceReflectionRemover
-    from header                   import  BatchAddress, DataSetData, DaughterSet_internal_, DaughterSet_getitem_ # type: ignore
+    from header                   import  BatchAddress, DataSetData, DaughterSet_internal_, DaughterSet_getitem_, FeatureSelection # type: ignore
 
 import  utils
 from scipy.interpolate import interp1d, CubicSpline # type: ignore
@@ -140,6 +140,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
                  stride: int,
                  srof_mean: np.ndarray | None = None,
                  srof_std: np.ndarray | None = None,
+                 feature_selection: FeatureSelection | None = None,
                  ):
         """
         Initialize the dataset by loading all files from the specified folder.
@@ -162,6 +163,11 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         super().__init__()
         assert seq_len is not None, "Sequence length must be specified."
         assert stride is not None, "Stride must be specified."
+
+        self.feature_selection  = feature_selection or FeatureSelection.from_config(None)
+        self.feature_names      = self.feature_selection.final_feature_names
+        self.combined_feature_dim = self.feature_selection.combined_size
+        self.final_feature_dim  = self.feature_selection.final_size
 
         self.wide               = utils.config['Dataset']['wide']
         self.super_res          = utils.config['Dataset'].get('super_resolution', False)
@@ -310,27 +316,48 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         tilt            = self.DataAddress[idx][4]
         count           = self.DataAddress[idx][5]
 
+        drop_positions  = self.DataAddress[idx][2]
+
         _lenght = len(self.DataAddress[idx][1])
-        
-        # Create tilt and count columns (single column instead of 50 duplicates)
-        tilt_col = np.full((_lenght, 1), tilt, dtype=np.float32)
-        count_col = np.full((_lenght, 1), count, dtype=np.float32)
-        
-        # Concatenate: drop_position (2 cols) + SROF features (8 cols) = 10 features
-        SROF_combined = np.concatenate(
-            (self.DataAddress[idx][2],  # drop_position (x, y centers)
-             SROF[:,:],                  # 8 SROF features
-            ), axis=1)
-        
-        # Apply normalization if statistics are available
-        if self.srof_mean is not None and self.srof_std is not None:
-            # Normalize SROF features (but NOT tilt/count which will be added after)
-            SROF_combined = (SROF_combined - self.srof_mean) / self.srof_std
-        
-        # Now add normalized tilt and count as single columns
-        count_col = count_col / 5000
-        tilt_col = tilt_col / 90
-        SROF_final = np.concatenate((tilt_col, count_col, SROF_combined), axis=1)
+            
+        combined_parts: list[np.ndarray] = []
+
+        if self.feature_selection.drop_indices:
+            drop_selected = drop_positions[:, self.feature_selection.drop_indices].astype(np.float32)
+            combined_parts.append(drop_selected)
+
+        if self.feature_selection.srof_indices:
+            srof_selected = SROF[:, self.feature_selection.srof_indices].astype(np.float32)
+            combined_parts.append(srof_selected)
+
+        if combined_parts:
+            combined = np.concatenate(combined_parts, axis=1)
+            if (
+                self.srof_mean is not None
+                and self.srof_std is not None
+                and combined.shape[1] == self.srof_mean.shape[0]
+                and combined.shape[1] == self.srof_std.shape[0]
+            ):
+                combined = (combined - self.srof_mean.reshape(1, -1)) / self.srof_std.reshape(1, -1)
+        else:
+            combined = np.zeros((_lenght, 0), dtype=np.float32)
+
+        final_parts: list[np.ndarray] = []
+        if self.feature_selection.use_tilt:
+            tilt_col = np.full((_lenght, 1), tilt, dtype=np.float32) / 90.0
+            final_parts.append(tilt_col)
+
+        if self.feature_selection.use_count:
+            count_col = np.full((_lenght, 1), count, dtype=np.float32) / 5000.0
+            final_parts.append(count_col)
+
+        if combined.shape[1] > 0:
+            final_parts.append(combined.astype(np.float32, copy=False))
+
+        if final_parts:
+            SROF_final = np.concatenate(final_parts, axis=1)
+        else:
+            SROF_final = np.zeros((_lenght, 0), dtype=np.float32)
 
         for file_path, drop_position in zip(self.DataAddress[idx][1],self.DataAddress[idx][2]):
             pil = Image.open(file_path).convert("L")

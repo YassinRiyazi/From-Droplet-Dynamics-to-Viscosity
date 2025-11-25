@@ -287,19 +287,10 @@ class Encoder_Transformer(nn.Module):
         # Extract embeddings
         if hasattr(self, 'autoencoder') and self.autoencoder is not None:
             embeddings = self._encoder(x)  # (batch, seq_len, embedding_dim)
+            embeddings = torch.cat([embeddings, x_additional], dim=-1)
         else:
             embeddings = x  # Assume input is already embeddings
-        
-        # Concatenate with additional features
-        if x_additional is not None and self.feature_norm is not None:
-            # Normalize S4-SROF features
-            batch_size, seq_len, feature_dim = x_additional.shape
-            x_add = x_additional.view(batch_size * seq_len, feature_dim)
-            x_add = self.feature_norm(x_add)
-            x_add = x_add.view(batch_size, seq_len, feature_dim)
-            
-            # Concatenate
-            embeddings = torch.cat([embeddings, x_add], dim=-1)
+
         
         # Forward through model
         output = self.model(embeddings)
@@ -322,12 +313,10 @@ class Encoder_Transformer(nn.Module):
         """
         Load pre-trained autoencoder and freeze it.
         """
-        if address_autoencoder is None:
-            raise ValueError("address_autoencoder cannot be None")
+        if address_autoencoder is None or Autoencoder_CNN is None:
+            return 
         
-        if Autoencoder_CNN is None:
-            Autoencoder_CNN = Autoencoder_CNNV1
-        
+
         self.autoencoder = Autoencoder_CNN(embedding_dim=1024).to(self.device)
         self.autoencoder.load_state_dict(torch.load(address_autoencoder, 
                                                     map_location=self.device))

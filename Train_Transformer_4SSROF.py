@@ -39,7 +39,7 @@ def handler_supervised(Args: tuple[torch.Tensor, torch.Tensor],
     if hasattr(model, 'transformer') and hasattr(model.transformer, 'reset_states'):
         model.transformer.reset_states(Args[0])
     
-    output = model(Args[0], Args[2])  # Forward pass with additional features
+    output = model(Args[2], )  # Forward pass with additional features
     loss = criterion(output, Args[1].view(-1))
     return output, loss
 
@@ -197,8 +197,7 @@ def save_reconstructions(model: nn.Module,
 
 
 def train_transformer_model(
-    _case:      str,
-    proj_dim:   int,
+
     input_dim:  int,
     
     # TODO: Make these configurable via utils.config
@@ -215,11 +214,16 @@ def train_transformer_model(
     _Ds = utils.data_set()
     _Ds.load_addresses()
     train_set, val_set = _Ds.load_datasets(
-        embedding_dim=proj_dim,
         stride=utils.config['Training']['Constant_feature_LSTM']['Stride'],
         sequence_length=utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
     )
-    
+    proj_dim = train_set[0][2].shape[1]
+    utils.config['Dataset']['embedding']['positional_encoding'] = 'False'
+    _case = utils.config['Dataset']['embedding']['positional_encoding']
+    case = _case
+
+
+
     _case = utils.config['Dataset']['embedding']['positional_encoding']
     Ref = utils.config['Dataset']['reflection_removal']
     ID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
@@ -243,14 +247,14 @@ def train_transformer_model(
     model = networks.Encoder_Transformer(
         address_autoencoder=AE_Address,
         proj_dim=proj_dim,
-        input_dim=input_dim,
+        input_dim=proj_dim,
         d_model=d_model,
         nhead=nhead,
         num_layers=num_layers,
         dim_feedforward=d_model * 4,
         dropout=utils.config['Training']['Constant_feature_LSTM']['DropOut'],
         Autoencoder_CNN=Autoencoder_CNN,
-        S4_size=12
+        S4_size=0
     )
     
     # DataLoaders
@@ -300,18 +304,12 @@ def train_transformer_model(
 
 
 if __name__ == "__main__":
-    proj_dim = 1024
-    input_dim = proj_dim
-    Autoencoder_CNN = networks.Autoencoder_CNN
+    input_dim = 0
     
-    for case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
-        utils.config['Dataset']['embedding']['positional_encoding'] = case
-        train_transformer_model(
-            d_model=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
-            nhead=8,  # Number of attention heads
-            num_layers=4,  # Number of transformer layers
-            _case=case,
-            input_dim=input_dim,
-            proj_dim=proj_dim,
-            Autoencoder_CNN=None,
-        )
+    train_transformer_model(
+        d_model=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
+        nhead=8,  # Number of attention heads
+        num_layers=4,  # Number of transformer layers
+        input_dim=input_dim,
+        Autoencoder_CNN=None,
+    )

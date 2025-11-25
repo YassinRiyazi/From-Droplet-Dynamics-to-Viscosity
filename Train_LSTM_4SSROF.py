@@ -96,9 +96,8 @@ def save_reconstructions(
                 break  # Only process the 5 batch
 
 def train_lstm_model(
-                     _case:str,
-                     proj_dim:int,
-                     LSTMEmbdSize:int,
+                     proj_dim:int|None = None,
+                     LSTMEmbdSize:int|None = None,
 
                      skip: int = utils.config['Training']['Constant_feature_LSTM']['Stride'],
                      SEQUENCE_LENGTH:int = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
@@ -109,9 +108,17 @@ def train_lstm_model(
 
     _Ds = utils.data_set()
     _Ds.load_addresses()
-    train_set, val_set = _Ds.load_datasets(embedding_dim=proj_dim,
+    train_set, val_set = _Ds.load_datasets(
                                            stride=utils.config['Training']['Constant_feature_LSTM']['Stride'],
                                            sequence_length=utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],)
+    
+    proj_dim = train_set[0][2].shape[1]
+    LSTMEmbdSize = proj_dim
+    utils.config['Dataset']['embedding']['positional_encoding'] = 'False'
+    _case = utils.config['Dataset']['embedding']['positional_encoding']
+    case = _case
+
+    
     print(f"Training LSTM model with embedding case: {_case}, hidden_dim: {hidden_dim}, sequence_length: {SEQUENCE_LENGTH}, stride: {skip}")
 
     _case   = utils.config['Dataset']['embedding']['positional_encoding']
@@ -195,20 +202,12 @@ def train_lstm_model(
 
 if __name__ == "__main__":
 
-    proj_dim = 12
+    proj_dim = None
     LSTMEmbdSize = proj_dim
     
-    
-    
-    for case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
-        # for hidden_dim in utils.config['Training']['Constant_feature_LSTM']['valid_embedding']:
-        #     utils.config['Training']['Constant_feature_LSTM']['Hidden_size'] = int(hidden_dim)
-            
-        #     for sequence in utils.config['Training']['Constant_feature_LSTM']['valid_window_Lenght']:
-        #         utils.config['Training']['Constant_feature_LSTM']['window_Lenght'] = sequence
-        train_lstm_model(
-                        hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
-                        _case=case,
-                        LSTMEmbdSize=LSTMEmbdSize,
-                        proj_dim=proj_dim,
-                        )
+
+    train_lstm_model(
+                    hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
+                    LSTMEmbdSize=LSTMEmbdSize,
+                    proj_dim=proj_dim,
+                    )

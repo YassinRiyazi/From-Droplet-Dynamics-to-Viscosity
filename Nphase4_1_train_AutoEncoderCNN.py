@@ -13,9 +13,7 @@
     
 
 """
-# import  glob
-# import  dataset
-# import  dataset             as      DSS
+
 import  os
 import  sys
 import  torch
@@ -26,15 +24,17 @@ from    torch.utils.data    import  DataLoader
 from    torch.optim         import  Adam, lr_scheduler, AdamW
 from    torchvision.utils   import  save_image
 from    typing              import  Callable, Optional, Tuple, Union
-import  torch.nn.functional as      F
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                             '../../../../',
-                                             'src/PyThon/NeuralNetwork/trainer')))
+
 import deeplearning
 # Set the random seed for reproducibility
 torch.manual_seed(42)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
+
+# Set float32 matrix multiplication precision to medium
+torch.set_float32_matmul_precision('medium')
+if torch.cuda.is_available():
+    torch.backends.cudnn.benchmark = True
 
 # Set float32 matrix multiplication precision to medium
 torch.set_float32_matmul_precision('medium')
@@ -212,7 +212,7 @@ def trainer(
 ):
     _Ds = utils.data_set()
     _Ds.load_addresses()
-    train_dataset, val_dataset = _Ds.load_datasets(embedding_dim=embedding_dim,
+    train_dataset, val_dataset = _Ds.load_datasets(
                                                    stride=utils.config['Training']['Constant_feature_AE']['Stride'],
                                                   sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
                                                   )
@@ -303,7 +303,8 @@ if __name__ == '__main__':
     for _case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
         utils.config['Dataset']['embedding']['positional_encoding'] = _case
 
-        for embedding_dim in [1024]:#utils.config['Training']['Constant_feature_AE']['valid_latent_dim']: #, 1024*4, ,1024*8, 128
+        for embedding_dim in utils.config['Training']['Constant_feature_AE']['valid_latent_dim']: #, 1024*4, ,1024*8, 128
+            
             trainer(
                 embedding_dim=embedding_dim,
                 ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints','AE_CNN'),
