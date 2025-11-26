@@ -202,6 +202,7 @@ def save_reconstructions(model: nn.Module,
 def train_transformer_model(
 
     input_dim:  int,
+    config_file: Optional[str] = None,
     
     # TODO: Make these configurable via utils.config
     d_model: int            = utils.config['Training']['Constant_features_Transformer']['d_model'],
@@ -213,11 +214,10 @@ def train_transformer_model(
     Autoencoder_CNN: torch.nn.Module | None = None
 ) -> None:
     
-    _Ds = utils.data_set()
-    _Ds.load_addresses()
+    _Ds = utils.data_set(_data_config=config_file)
     train_set, val_set = _Ds.load_datasets(
-        stride=utils.config['Training']['Constant_feature_LSTM']['Stride'],
-        sequence_length=utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
+        stride=utils.config['Training']['Constant_features_Transformer']['Stride'],
+        sequence_length=utils.config['Training']['Constant_features_Transformer']['window_Lenght'],
     )
     proj_dim = train_set[0][2].shape[1]
     utils.config['Dataset']['embedding']['positional_encoding'] = 'False'
@@ -229,6 +229,9 @@ def train_transformer_model(
     for ds in val_set.DaughterSets.values():
         ds.S4ORF_only = True
 
+    print("=" * 60)
+    print(proj_dim)
+    print("=" * 60)
 
 
     _case = utils.config['Dataset']['embedding']['positional_encoding']
@@ -294,7 +297,7 @@ def train_transformer_model(
         optimizer=optimizer,
         device=device,
         Plateaued=None,
-        model_name=f"AE_CNN_Transformer_DM{d_model}_NH{nhead}_NL{num_layers}_SL{SEQUENCE_LENGTH}_s{skip}_w{utils.config['Training']['Constant_feature_LSTM']['window_Lenght']}_{case=}",
+        model_name=f"AE_CNN_Transformer_DM{d_model}_NH{nhead}_NL{num_layers}_SL{SEQUENCE_LENGTH}_s{skip}_w{utils.config['Training']['Constant_features_Transformer']['window_Lenght']}_{case=}",
         handler=handler_supervised,
         handler_postfix=save_reconstructions,
         ckpt_save_path=os.path.join(os.path.dirname(__file__), 'Output', 
@@ -312,9 +315,11 @@ def train_transformer_model(
 
 if __name__ == "__main__":
     input_dim = 0
+    config_file = 'data_config.yaml'
     
     train_transformer_model(
 
         input_dim=input_dim,
         Autoencoder_CNN=None,
+        config_file=config_file
     )

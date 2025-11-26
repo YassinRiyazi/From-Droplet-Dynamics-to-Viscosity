@@ -126,6 +126,9 @@ def train_lstm_model(config: str ,
     _case = utils.config['Dataset']['embedding']['positional_encoding']
     case = _case
 
+    print("=" * 60)
+    print(proj_dim)
+    print("=" * 60)
     
     print(f"Training LSTM model with embedding case: {_case}, hidden_dim: {hidden_dim}, sequence_length: {SEQUENCE_LENGTH}, stride: {skip}")
 

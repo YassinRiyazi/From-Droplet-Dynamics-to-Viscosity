@@ -114,7 +114,7 @@ class data_set:
                 feature_config=canonical_features
             )
         else:
-            print("Creating TRAINING dataset from scratch (this will take time)...")
+            print(f"Creating TRAINING dataset from scratch (this will take time)... {self.cache_train}")
             self.train_dataset = dataset.MotherFolderDataset(
                 dicAddresses=self.dicAddressesTrain,
                 stride=stride,
