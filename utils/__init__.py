@@ -24,14 +24,18 @@ def set_randomness(seed: int):
         torch.cuda.manual_seed_all(seed)
 
 class data_set:
-    def __init__(self,):
+    def __init__(self, _data_config: str|None = None) -> None:
+        if _data_config is not None:
+            with open(_data_config, "r") as file:
+                data_config = yaml.safe_load(file)
+        else:
+            pass
 
         self.cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
         if not os.path.exists(self.cache_dir):
             raise FileNotFoundError(f"Cache directory {self.cache_dir} does not exist.")
         
-        
-
+    
         # cache_test = os.path.join(cache_dir, f"dataset_cache_test.pkl")
         self._case      = config['Dataset']['embedding']['positional_encoding']
         self.Ref        = config['Dataset']['reflection_removal']

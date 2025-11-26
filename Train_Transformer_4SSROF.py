@@ -34,10 +34,13 @@ def handler_supervised(Args: tuple[torch.Tensor, torch.Tensor],
     """
     Handler for supervised training with transformer.
     """
-    Args = [arg.contiguous().to(device) for arg in Args]
+    # Args = [arg.contiguous().to(device) for arg in Args]
+    Args[1] = Args[1].contiguous().to(device)
+    Args[2] = Args[2].contiguous().to(device)
+
     # Reset states if needed (Transformer is stateless but method exists for compatibility)
     if hasattr(model, 'transformer') and hasattr(model.transformer, 'reset_states'):
-        model.transformer.reset_states(Args[0])
+        model.transformer.reset_states(Args[2])
     
     output = model(Args[2], )  # Forward pass with additional features
     loss = criterion(output, Args[1].view(-1))
@@ -51,10 +54,10 @@ def save_reconstructions(model: nn.Module,
                         epoch: int,
                         num_samples: int = 8) -> None:
     """Save predictions and visualize attention weights."""
+    return 0 
     num_samples = max(num_samples, 64)
     model.eval()
     os.makedirs(save_dir, exist_ok=True)
-    return 0 
     with torch.no_grad():
         for i, Args in enumerate(dataloader):
             Args = [arg.contiguous().to(device) for arg in Args]
@@ -201,13 +204,12 @@ def train_transformer_model(
     input_dim:  int,
     
     # TODO: Make these configurable via utils.config
-    d_model: int            = 256,
-    nhead: int              = 8,
-    num_layers: int         = 4,
-
-
-    skip: int               = utils.config['Training']['Constant_feature_LSTM']['Stride'],
-    SEQUENCE_LENGTH: int    = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
+    d_model: int            = utils.config['Training']['Constant_features_Transformer']['d_model'],
+    nhead: int              = utils.config['Training']['Constant_features_Transformer']['nhead'],
+    num_layers: int         = utils.config['Training']['Constant_features_Transformer']['num_layers'],
+    dropout: float          = float(utils.config['Training']['Constant_features_Transformer']['DropOut']),
+    skip: int               = utils.config['Training']['Constant_features_Transformer']['Stride'],
+    SEQUENCE_LENGTH: int    = utils.config['Training']['Constant_features_Transformer']['window_Lenght'],
     Autoencoder_CNN: torch.nn.Module | None = None
 ) -> None:
     
@@ -221,6 +223,11 @@ def train_transformer_model(
     utils.config['Dataset']['embedding']['positional_encoding'] = 'False'
     _case = utils.config['Dataset']['embedding']['positional_encoding']
     case = _case
+
+    for ds in train_set.DaughterSets.values():
+        ds.S4ORF_only = True
+    for ds in val_set.DaughterSets.values():
+        ds.S4ORF_only = True
 
 
 
@@ -252,9 +259,9 @@ def train_transformer_model(
         nhead=nhead,
         num_layers=num_layers,
         dim_feedforward=d_model * 4,
-        dropout=utils.config['Training']['Constant_feature_LSTM']['DropOut'],
+        S4_size=0,
         Autoencoder_CNN=Autoencoder_CNN,
-        S4_size=0
+        dropout=dropout,
     )
     
     # DataLoaders
@@ -273,7 +280,7 @@ def train_transformer_model(
     
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=float(utils.config['Training']['Constant_feature_LSTM']['learning_rate']),
+        lr=float(utils.config['Training']['Constant_features_Transformer']['learning_rate']),
         weight_decay=float(utils.config['Training']['weight_decay'])
     )
     criterion = nn.MSELoss()
@@ -307,9 +314,7 @@ if __name__ == "__main__":
     input_dim = 0
     
     train_transformer_model(
-        d_model=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
-        nhead=8,  # Number of attention heads
-        num_layers=4,  # Number of transformer layers
+
         input_dim=input_dim,
         Autoencoder_CNN=None,
     )

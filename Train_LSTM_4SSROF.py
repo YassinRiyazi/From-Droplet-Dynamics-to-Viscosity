@@ -44,7 +44,9 @@ def handler_supervised(Args:tuple[torch.Tensor, torch.Tensor],
     This function is a placeholder for handling supervised training.
     It can be extended to include specific logic for supervised learning tasks.
     """
-    Args = [arg.contiguous().to(device) for arg in Args]
+    Args[1] = Args[1].contiguous().to(device)
+    Args[2] = Args[2].contiguous().to(device)
+
     model.lstm.reset_states(Args[2])  # Reset LSTM states before processing a new batch
     output = model(Args[2])
     loss = criterion(output, Args[1].view(-1))
@@ -68,6 +70,7 @@ def save_reconstructions(
     Returns:
         None: Saves images and text file to the specified directory.
     """
+    return 0 
     num_samples = max(num_samples, 64)  # Ensure at least one sample is saved
     model.eval()
     os.makedirs(save_dir, exist_ok=True)
@@ -95,7 +98,7 @@ def save_reconstructions(
             if i >= 30:  # Limit to first 30     batches
                 break  # Only process the 5 batch
 
-def train_lstm_model(
+def train_lstm_model(config: str ,
                      proj_dim:int|None = None,
                      LSTMEmbdSize:int|None = None,
 
@@ -106,11 +109,16 @@ def train_lstm_model(
     utils.config['Training']['Constant_feature_LSTM']['learning_rate'] = 1e-3
 
 
-    _Ds = utils.data_set()
+    _Ds = utils.data_set(_data_config=config)
     _Ds.load_addresses()
     train_set, val_set = _Ds.load_datasets(
                                            stride=utils.config['Training']['Constant_feature_LSTM']['Stride'],
                                            sequence_length=utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],)
+    
+    for ds in train_set.DaughterSets.values():
+        ds.S4ORF_only = True
+    for ds in val_set.DaughterSets.values():
+        ds.S4ORF_only = True
     
     proj_dim = train_set[0][2].shape[1]
     LSTMEmbdSize = proj_dim
@@ -205,9 +213,11 @@ if __name__ == "__main__":
     proj_dim = None
     LSTMEmbdSize = proj_dim
     
+    config = 'Configs/narmal+tilt.yaml'
 
     train_lstm_model(
                     hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
                     LSTMEmbdSize=LSTMEmbdSize,
                     proj_dim=proj_dim,
+                    config = config
                     )

@@ -17,9 +17,10 @@ def build_dataset(addresses: list[str]) -> NDArray[np.float64]:
     return data
 
 if __name__ == "__main__":
-    data_dir = '/media/d25u2/Dont/Teflon-AVP'
+    data_dir = '/media/d25u2/Dont/Viscosity'
 
     tilt_folders = sorted(glob.glob(f'{data_dir}/*',))
+    tilt_folders = [folder for folder in tilt_folders if os.path.isdir(folder)]
 
     # check only folders with tilt
     tilt_folders = [folder for folder in tilt_folders if re.match(r'.*/-?\d+$', folder)]
@@ -28,7 +29,7 @@ if __name__ == "__main__":
 
     data_train = build_dataset(addresses)
 
-    x_train = data_train[:, 0:2]
+    x_train = data_train[:, 0:1]
     y_train = data_train[:, 2]
 
     linreg = LinearRegression()

@@ -209,6 +209,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
              transforms.ToTensor(),])
         
         self.ReturnReflection = False
+        self.S4ORF_only = False
 
     def PE_embedding(self,
                      size_x: int,) -> NDArray[np.uint8] | None:       
@@ -302,11 +303,71 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         return len(self.DataAddress)
 
     def __getitem__(self, idx:int) -> DaughterSet_getitem_|tuple[torch.Tensor, torch.Tensor]:
-        if self.ReturnReflection == True:
+        if self.ReturnReflection == True and self.S4ORF_only == False:
             # print("seq_tensor, seq_reflection_tensor")
             return self.getitem_Reflection(idx)
+        
+        elif self.S4ORF_only == True:
+            return self.__getitem__attributes(idx)
+        
         else:
             return self.__getitem__Normal(idx)
+
+
+    def __getitem__attributes(self, idx:int):
+        
+        viscosity       = self.DataAddress[idx][0]
+        SROF            = self.DataAddress[idx][3]
+        tilt            = self.DataAddress[idx][4]
+        count           = self.DataAddress[idx][5]
+
+        drop_positions  = self.DataAddress[idx][2]
+
+        _lenght = len(self.DataAddress[idx][1])
+            
+        combined_parts: list[np.ndarray] = []
+
+        if self.feature_selection.drop_indices:
+            drop_selected = drop_positions[:, self.feature_selection.drop_indices].astype(np.float32)
+            combined_parts.append(drop_selected)
+
+        if self.feature_selection.srof_indices:
+            srof_selected = SROF[:, self.feature_selection.srof_indices].astype(np.float32)
+            combined_parts.append(srof_selected)
+
+        if combined_parts:
+            combined = np.concatenate(combined_parts, axis=1)
+            if (
+                self.srof_mean is not None
+                and self.srof_std is not None
+                and combined.shape[1] == self.srof_mean.shape[0]
+                and combined.shape[1] == self.srof_std.shape[0]
+            ):
+                combined = (combined - self.srof_mean.reshape(1, -1)) / self.srof_std.reshape(1, -1)
+        else:
+            combined = np.zeros((_lenght, 0), dtype=np.float32)
+
+        final_parts: list[np.ndarray] = []
+        if self.feature_selection.use_tilt:
+            tilt_col = np.full((_lenght, 1), tilt, dtype=np.float32) / 90.0
+            final_parts.append(tilt_col)
+
+        if self.feature_selection.use_count:
+            count_col = np.full((_lenght, 1), count, dtype=np.float32) / 5000.0
+            final_parts.append(count_col)
+
+        if combined.shape[1] > 0:
+            final_parts.append(combined.astype(np.float32, copy=False))
+
+        if final_parts:
+            SROF_final = np.concatenate(final_parts, axis=1)
+        else:
+            SROF_final = np.zeros((_lenght, 0), dtype=np.float32)
+        
+        return (torch.tensor(idx, dtype=torch.int32),
+                torch.tensor(viscosity, dtype=torch.float32),
+                torch.tensor(SROF_final, dtype=torch.float32),
+                )
 
     def __getitem__Normal(self, idx:int) -> DaughterSet_getitem_:
         seq: list[torch.Tensor] = []
