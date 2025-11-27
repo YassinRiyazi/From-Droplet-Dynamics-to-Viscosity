@@ -28,7 +28,8 @@
         - [ ] Before terminating because of no meaningful change in loss, ask a user for confirmation and wait for 30 seconds.
         In case of no response, save and exit. Same as the case of learning rate becoming too small or Ctrl + D.
 
-
+        - add a dummy test in the end of this file to visualize how to use it/ how it looks like
+        - color the validation loss to easily be finds, mabube undeline it or make it bold
     Help:
         Find PID: nvidia-smi
         To divide Lr: kill -USR1 <pid> 

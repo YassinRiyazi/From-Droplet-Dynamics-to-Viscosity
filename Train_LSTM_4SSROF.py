@@ -216,7 +216,7 @@ if __name__ == "__main__":
     proj_dim = None
     LSTMEmbdSize = proj_dim
     
-    config = 'Configs/narmal+tilt.yaml'
+    config = 'Configs/SROF+tilt.yaml'
 
     train_lstm_model(
                     hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
