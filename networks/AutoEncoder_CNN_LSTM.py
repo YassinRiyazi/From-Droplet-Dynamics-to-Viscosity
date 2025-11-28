@@ -201,6 +201,16 @@ class Encoder_LSTM(torch.nn.Module):
         
         self.autoencoder = Autoencoder_CNN(embedding_dim = self.proj_dim).to(self.device)
         self.autoencoder.eval()
-        self.autoencoder.load_state_dict(torch.load(address_autoencoder, map_location=self.device))
+        
+        # Load state dict and handle potential _orig_mod prefix from torch.compile
+        state_dict = torch.load(address_autoencoder, map_location=self.device)
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            if k.startswith('_orig_mod.'):
+                new_state_dict[k[10:]] = v
+            else:
+                new_state_dict[k] = v
+                
+        self.autoencoder.load_state_dict(new_state_dict)
         
         return None

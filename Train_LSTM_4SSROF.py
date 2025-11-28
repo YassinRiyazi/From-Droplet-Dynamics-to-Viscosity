@@ -102,6 +102,8 @@ def train_lstm_model(config: str ,
                      proj_dim:int|None = None,
                      LSTMEmbdSize:int|None = None,
 
+                     ckpt_path: str|None = None,
+
                      skip: int = utils.config['Training']['Constant_feature_LSTM']['Stride'],
                      SEQUENCE_LENGTH:int = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
                      hidden_dim:int = 256,
@@ -200,7 +202,7 @@ def train_lstm_model(config: str ,
         handler_postfix=save_reconstructions,
 
         ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints','LSTM'),
-        ckpt_path=None,
+        ckpt_path=ckpt_path,
         report_path=os.path.join(os.path.dirname(__file__),'Output','LSTM', 'training_report.csv'),
 
         lr_scheduler = lr_scheduler,
@@ -218,9 +220,15 @@ if __name__ == "__main__":
     
     config = 'Configs/SROF+tilt+count.yaml'
 
+
+
+
+    ckpt_path = None
+
     train_lstm_model(
                     hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
                     LSTMEmbdSize=LSTMEmbdSize,
                     proj_dim=proj_dim,
-                    config = config
+                    config = config,
+                    ckpt_path = ckpt_path
                     )

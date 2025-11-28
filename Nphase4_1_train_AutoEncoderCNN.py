@@ -300,14 +300,27 @@ def trainer(
     
 if __name__ == '__main__':
     
-    for _case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
-        utils.config['Dataset']['embedding']['positional_encoding'] = _case
+    # for _case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
+    #     utils.config['Dataset']['embedding']['positional_encoding'] = _case
 
-        for embedding_dim in utils.config['Training']['Constant_feature_AE']['valid_latent_dim']: #, 1024*4, ,1024*8, 128
+    #     for embedding_dim in utils.config['Training']['Constant_feature_AE']['valid_latent_dim']: #, 1024*4, ,1024*8, 128
             
-            trainer(
+    #         trainer(
+    #             embedding_dim=embedding_dim,
+    #             ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints','AE_CNN'),
+    #             ckpt_path=None,
+    #             report_path=os.path.join(os.path.dirname(__file__),'Output','AE_CNN', 'training_report.csv'),
+    #         )
+    utils.config['Dataset']['embedding']['positional_encoding'] = 'False'
+    utils.config['Training']['num_epochs'] = 30
+    embedding_dim = 1024
+    ckpt_path = 'Output/checkpoints/AE_CNN/CNN_AE_9_Autoencoder_CNNV1_0_False_8_self.Ref=False_False_s2_w1_tilt0_count0_dropx0_dropy0_t1_xc1_yc1_adv1_rec1_mid1_cll1_vel1_20251127_140704/ckpt_CNN_AE_9_Autoencoder_CNNV1_0_False_8_self.Ref=False_False_s2_w1_tilt0_count0_dropx0_dropy0_t1_xc1_yc1_adv1_rec1_mid1_cll1_vel1_epoch20.ckpt'
+
+
+    trainer(
                 embedding_dim=embedding_dim,
                 ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints','AE_CNN'),
-                ckpt_path=None,
+                ckpt_path=ckpt_path,
                 report_path=os.path.join(os.path.dirname(__file__),'Output','AE_CNN', 'training_report.csv'),
+
             )

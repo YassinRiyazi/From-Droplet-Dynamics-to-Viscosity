@@ -10,8 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import dataset
 from dataset.header import FeatureSelection
 
-with open("data_config.yaml", "r") as file:
-    data_config = yaml.safe_load(file)
+
 
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
@@ -29,7 +28,8 @@ class data_set:
             with open(_data_config, "r") as file:
                 data_config = yaml.safe_load(file)
         else:
-            pass
+            with open("data_config.yaml", "r") as file:
+                data_config = yaml.safe_load(file)
 
         self.cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
         if not os.path.exists(self.cache_dir):

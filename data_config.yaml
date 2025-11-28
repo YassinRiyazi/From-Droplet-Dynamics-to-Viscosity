@@ -1,6 +1,6 @@
 features:
-  tilt_angle: 0
-  frame_count: 0
+  tilt_angle: true
+  frame_count: true
 
   drop_position:
     x_center: 0

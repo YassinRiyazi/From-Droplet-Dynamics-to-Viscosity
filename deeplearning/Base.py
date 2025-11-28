@@ -212,7 +212,17 @@ def load_model(ckpt_path: Union[str, os.PathLike[str]],
         optimizer (Optional[nn.Module]): Optimizer with loaded state (if provided)
     """
     checkpoint = torch.load(ckpt_path, map_location=torch.device("cpu"))
-    model.load_state_dict(checkpoint["model"])
+    state_dict = checkpoint["model"]
+
+    # torch.compile() wraps modules in an _orig_mod attribute; strip it when loading
+    if any(key.startswith("_orig_mod.") for key in state_dict.keys()):
+        cleaned_state_dict = {}
+        for key, value in state_dict.items():
+            new_key = key.replace("_orig_mod.", "", 1)
+            cleaned_state_dict[new_key] = value
+        state_dict = cleaned_state_dict
+
+    model.load_state_dict(state_dict)
     if optimizer is not None and "optimizer" in checkpoint.keys():
         optimizer.load_state_dict(checkpoint["optimizer"])
     return model, optimizer

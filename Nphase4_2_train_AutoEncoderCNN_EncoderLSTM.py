@@ -122,19 +122,18 @@ def save_reconstructions(
                 break  # Only process the 5 batch
 
 def train_lstm_model(
-                     _case:str,
-                     ImageSize:Tuple[int, int],
+                     case:str,
                      proj_dim:int,
                      LSTMEmbdSize:int,
 
-                     skip: int = utils.config['Training']['Constant_feature_LSTM']['Stride'],
-                     SEQUENCE_LENGTH:int = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
-                     hidden_dim:int = 256,
-                     Autoencoder_CNN: torch.nn.modules = None) -> None:
+                     skip: int              = utils.config['Training']['Constant_feature_LSTM']['Stride'],
+                     SEQUENCE_LENGTH:int    = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
+                     hidden_dim:int         = utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
+                     Autoencoder_CNN: torch.nn.Module| None = None) -> None:
   
     _Ds = utils.data_set()
     _Ds.load_addresses()
-    train_set, val_set = _Ds.load_datasets(embedding_dim=proj_dim,
+    train_set, val_set = _Ds.load_datasets(
                                            stride=utils.config['Training']['Constant_feature_LSTM']['Stride'],
                                            sequence_length=utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],)
 
@@ -145,7 +144,7 @@ def train_lstm_model(
     model_name_AE = f"CNN_AE_{utils.config['Training']['Constant_feature_AE']['AutoEncoder_layers']}_{utils.config['Training']['Constant_feature_AE']['Architecture']}_{_case}_{proj_dim}_{Ref=}_{ID}"
     
     model_name_AE = model_name_AE.replace('_Ref','_self.Ref')
-    model_addresse = sorted(glob.glob(f'Output/checkpoints/AE_CNN/*{model_name_AE}*/*.pt'))
+    model_addresse = sorted(glob.glob(f'Output/checkpoints/AE_CNN/{case}/*.pt'))
     if len(model_addresse) == 1 :
         AE_Address = model_addresse[0]
     else:
@@ -227,19 +226,37 @@ if __name__ == "__main__":
     LSTMEmbdSize = proj_dim
     Autoencoder_CNN = networks.Autoencoder_CNN
     
+    neural_cases = [
+    'CNNV1_0_128_Velocity_Ref=False_s2_w1', 'CNNV1_0_1024_Velocity_Ref=False_s2_w1'
+    'CNNV1_0_128_Position_Ref=False_s2_w1', 'CNNV1_0_1024_Position_Ref=False_s2_w1'
+    'CNNV1_0_128_False_Ref=False_s2_w1',    'CNNV1_0_1024_False_Ref=False_s2_w1'   
+    ]
     
-    
-    for case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
-        # for hidden_dim in utils.config['Training']['Constant_feature_LSTM']['valid_embedding']:
-        #     utils.config['Training']['Constant_feature_LSTM']['Hidden_size'] = int(hidden_dim)
+    # for case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
+    #     # for hidden_dim in utils.config['Training']['Constant_feature_LSTM']['valid_embedding']:
+    #     #     utils.config['Training']['Constant_feature_LSTM']['Hidden_size'] = int(hidden_dim)
             
-        #     for sequence in utils.config['Training']['Constant_feature_LSTM']['valid_window_Lenght']:
-        #         utils.config['Training']['Constant_feature_LSTM']['window_Lenght'] = sequence
-        utils.config['Dataset']['embedding']['positional_encoding'] = case
+    #     #     for sequence in utils.config['Training']['Constant_feature_LSTM']['valid_window_Lenght']:
+    #     #         utils.config['Training']['Constant_feature_LSTM']['window_Lenght'] = sequence
+    #     utils.config['Dataset']['embedding']['positional_encoding'] = case
+    #     train_lstm_model(
+    #                     hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
+    #                     _case=case,
+    #                     ImageSize=ImageSize,
+    #                     LSTMEmbdSize=LSTMEmbdSize,
+    #                     proj_dim=proj_dim,
+    #                     Autoencoder_CNN=Autoencoder_CNN,
+    #                     )
+
+    for case in neural_cases:
+        _data = case.split('_')
+        proj_dim =  int(_data[2])
+        LSTMEmbdSize = proj_dim
+
+        utils.config['Dataset']['embedding']['positional_encoding'] = _data[3]
         train_lstm_model(
+                        case=case,
                         hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
-                        _case=case,
-                        ImageSize=ImageSize,
                         LSTMEmbdSize=LSTMEmbdSize,
                         proj_dim=proj_dim,
                         Autoencoder_CNN=Autoencoder_CNN,
