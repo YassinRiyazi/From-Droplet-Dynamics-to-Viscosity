@@ -70,7 +70,7 @@ Training:
     valid_embedding       : [128, 256]
     valid_window_Lenght   : [1, 10]
 
-  num_workers           : 16
+  num_workers           : 8
   GPU_temperature       : 67 # temperature threshold for GPU to wait/puase training
   checkpoint_save_freq  : 10
   hard_negative_mining  : False

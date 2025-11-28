@@ -226,11 +226,6 @@ if __name__ == "__main__":
     LSTMEmbdSize = proj_dim
     Autoencoder_CNN = networks.Autoencoder_CNN
     
-    neural_cases = [
-    'CNNV1_0_128_Velocity_Ref=False_s2_w1', 'CNNV1_0_1024_Velocity_Ref=False_s2_w1'
-    'CNNV1_0_128_Position_Ref=False_s2_w1', 'CNNV1_0_1024_Position_Ref=False_s2_w1'
-    'CNNV1_0_128_False_Ref=False_s2_w1',    'CNNV1_0_1024_False_Ref=False_s2_w1'   
-    ]
     
     # for case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
     #     # for hidden_dim in utils.config['Training']['Constant_feature_LSTM']['valid_embedding']:
@@ -248,6 +243,14 @@ if __name__ == "__main__":
     #                     Autoencoder_CNN=Autoencoder_CNN,
     #                     )
 
+    neural_cases = [
+    # 'CNNV1_0_128_Velocity_Ref=False_s2_w1', 
+    'CNNV1_0_1024_Velocity_Ref=False_s2_w1',
+    'CNNV1_0_128_Position_Ref=False_s2_w1', 
+    'CNNV1_0_1024_Position_Ref=False_s2_w1',
+    'CNNV1_0_128_False_Ref=False_s2_w1',
+    'CNNV1_0_1024_False_Ref=False_s2_w1',
+    ]
     for case in neural_cases:
         _data = case.split('_')
         proj_dim =  int(_data[2])
