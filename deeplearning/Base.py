@@ -45,6 +45,7 @@ import  torch.nn        as      nn
 import  pandas          as      pd
 import  numpy           as      np
 import  numpy.typing    as      npt
+import  csv
 
 from    tqdm            import  tqdm
 from    datetime        import  datetime
@@ -391,15 +392,17 @@ def train(
     # Live plotter
     plotter = RealTimePlotter(title=f"{model_name} – Real-Time Loss", prefer_opengl=prefer_opengl_plot) if enable_live_plot else None
 
-    report = pd.DataFrame(columns=[
+    # Initialize CSV report file
+    report_file_path = os.path.join(save_dir, f"{model_name}_report.csv")
+    report_fields = [
         "model_name", "mode", "epoch", "learning_rate", "batch_size", "batch_index",
         "loss_batch", "avg_train_loss_till_current_batch", "avg_val_loss_till_current_batch"
-    ])
-    numeric_columns = ["epoch", "learning_rate", "batch_size", "batch_index",
-                       "loss_batch", "avg_train_loss_till_current_batch",
-                       "avg_val_loss_till_current_batch"]
-    for col in numeric_columns:
-        report[col] = report[col].astype(float)
+    ]
+    
+    # Create file and write header
+    with open(report_file_path, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=report_fields)
+        writer.writeheader()
 
     best_val_loss = float('inf')
     epochs_no_improve = 0
@@ -467,15 +470,19 @@ def train(
                 "avg_train_loss_till_current_batch": float(loss_avg_train.avg),
                 "avg_val_loss_till_current_batch": np.nan,
             }
-            report = pd.concat([report, pd.DataFrame([new_row])], ignore_index=True)
+            
+            # Append to CSV file immediately
+            with open(report_file_path, 'a', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=report_fields)
+                writer.writerow(new_row)
 
             # if batch_idx % 10 == 0:
             #     monitor_gpu_temperature(threshold=GPU_temperature, sleep_seconds=GPU_overheat_sleep)
 
             # OPTIONAL: per-BATCH plotting (commented). Enable for finer granularity.
-            if plotter is not None and batch_idx % 10 == 0:
-                plotter.update(epoch - 1 + batch_idx / max(1, len(current_train_loader)),
-                               train_loss=loss_avg_train.avg, val_loss=0)
+            # if plotter is not None and batch_idx % 10 == 0:
+            #     plotter.update(epoch - 1 + batch_idx / max(1, len(current_train_loader)),
+            #                    train_loss=loss_avg_train.avg, val_loss=0)
 
         # ----------------- VALIDATION -----------------
         model.eval()
@@ -505,7 +512,11 @@ def train(
                     "avg_train_loss_till_current_batch": np.nan,
                     "avg_val_loss_till_current_batch": float(loss_avg_val.avg),
                 }
-                report = pd.concat([report, pd.DataFrame([new_row])], ignore_index=True)
+                
+                # Append to CSV file immediately
+                with open(report_file_path, 'a', newline='') as f:
+                    writer = csv.DictWriter(f, fieldnames=report_fields)
+                    writer.writerow(new_row)
 
                 # if batch_idx % 10 == 0:
                 #     monitor_gpu_temperature(threshold=GPU_temperature, sleep_seconds=GPU_overheat_sleep)
@@ -551,8 +562,9 @@ def train(
         if lr_scheduler is not None:
             lr_scheduler.step()
 
-        if report_path is not None:
-            report.to_csv(os.path.join(save_dir, f"{model_name}_report.csv"), index=False)
+        # Report is already saved incrementally
+        # if report_path is not None:
+        #     pd.DataFrame(report_list).to_csv(os.path.join(save_dir, f"{model_name}_report.csv"), index=False)
 
     # Final save & close plot
     torch.save(model.state_dict(), os.path.join(save_dir, f"{model_name}_final.pt"))
@@ -566,4 +578,6 @@ def train(
                     DPI=400,
                     ShowPlot=False)
     
-    return model, optimizer, report
+    # Return empty DataFrame or read from file if needed. 
+    # For performance, we return an empty one as it's rarely used in the return value.
+    return model, optimizer, pd.DataFrame()

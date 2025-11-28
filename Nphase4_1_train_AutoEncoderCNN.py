@@ -36,12 +36,6 @@ torch.set_float32_matmul_precision('medium')
 if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
 
-# Set float32 matrix multiplication precision to medium
-torch.set_float32_matmul_precision('medium')
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-if torch.cuda.is_available():
-    torch.backends.cudnn.benchmark = True
-
 
 def Plateaued_Closed(save_model:Callable[..., None],
               model:torch.nn.Module,
@@ -93,6 +87,8 @@ def handler_selfSupervised(Args:tuple[torch.Tensor, torch.Tensor],
     output = model(Args[0])
 
     loss   = criterion(output, Args[0])
+    # plot 
+
     if additional:
         mean_error = (output - Args[0]).abs()[Args[1] > 0.01].mean()
         mean_error = Scale * mean_error.item() / (Args[1] > 0.001).sum()
@@ -217,7 +213,8 @@ def trainer(
                                                   sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
                                                   )
     
-    
+    # plot a sample from dataset
+    #   
 
     if utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_CNNV1_0':
         ImageSize: Tuple[int, int] = (201,201)
@@ -237,8 +234,11 @@ def trainer(
     else:
         model.DropOut = DropOut
         addirtioanl_flag = True
-   
-    train_dataset, val_dataset = _Ds.reflectionReturn_Setter(flag=True)
+    ####################################################
+    # Load reflection removal datasets if needed
+    ####################################################
+    # utils.config['Dataset']['reflection_removal'] = True
+    train_dataset, val_dataset = _Ds.reflectionReturn_Setter(flag=False)
     model_name = _Ds.model_name
 
     # Optimize DataLoader
@@ -253,6 +253,8 @@ def trainer(
                             )
 
     criterion       = nn.MSELoss()
+
+
 
     # Learning rate scheduler, If optimizer is AdamW skipping scheduler
     scheduler   = None
@@ -295,11 +297,13 @@ def trainer(
         num_hard_samples=num_hard_samples,
         new_lr=float(utils.config['Training']['learning_rate']),
         use_amp=True,
+
+        enable_live_plot        = utils.config['Training']['Show_plot'],
     )
 
     
 if __name__ == '__main__':
-    utils.config['Dataset']['reflection_removal'] = True
+    
     
     for _case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
         utils.config['Dataset']['embedding']['positional_encoding'] = _case

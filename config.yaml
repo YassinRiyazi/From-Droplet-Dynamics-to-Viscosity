@@ -32,6 +32,7 @@ Dataset:
   cropped_tolerance  : 15 # number of pixels above and below the droplet to include in cropped images
 
 Training:
+  Show_plot            : False  # whether to show training plots
   USE_pretrained_AE    : False  # whether to use a pre-trained autoencoder model
   batch_size            : 16
   learning_rate         : 1e-4

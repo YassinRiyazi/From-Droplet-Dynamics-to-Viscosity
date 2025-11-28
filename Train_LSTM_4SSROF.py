@@ -210,6 +210,8 @@ def train_lstm_model(config: str ,
         ckpt_save_freq          = utils.config['Training']['checkpoint_save_freq'],
         use_hard_negative_mining= utils.config['Training']['hard_negative_mining'],
         GPU_temperature         = utils.config['Training']['GPU_temperature'],
+
+        enable_live_plot        = utils.config['Training']['Show_plot'],
     )
 
 
