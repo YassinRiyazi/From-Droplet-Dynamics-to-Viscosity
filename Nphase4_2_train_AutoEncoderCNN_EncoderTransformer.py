@@ -1,7 +1,7 @@
 """
     Author:         Yassin Riyazi
     Date:           04-08-2025
-    Description:    Train an embedding-based LSTM for time series data.
+    Description:    Train an embedding-based Transformer for time series data.
 
     Changelog:
         - 04-08-2025: Initial version. 
@@ -43,7 +43,7 @@ def handler_supervised(Args:tuple[torch.Tensor, torch.Tensor],
     It can be extended to include specific logic for supervised learning tasks.
     """
     Args = [arg.contiguous().to(device) for arg in Args]
-    model.lstm.reset_states(Args[0])  # Reset LSTM states before processing a new batch
+    # model.lstm.reset_states(Args[0])  # Reset LSTM states before processing a new batch
     
     output = model(Args[0],
                    Args[2])  # Forward pass with additional input
@@ -77,7 +77,7 @@ def save_reconstructions(
     with torch.no_grad():
         for i, Args in enumerate(dataloader):
             Args = [arg.contiguous().to(device) for arg in Args]
-            model.lstm.reset_states(Args[0])  # Reset LSTM states before processing a new batch
+            # model.lstm.reset_states(Args[0])  # Reset LSTM states before processing a new batch
             output = model(Args[0], 
                            Args[2])  # Forward pass with additional input
 
@@ -121,31 +121,36 @@ def save_reconstructions(
             if i >= 30:  # Limit to first 30     batches
                 break  # Only process the 5 batch
 
-def train_lstm_model(
+def train_transformer_model(
                      case:str,
                      proj_dim:int,
-                     LSTMEmbdSize:int,
+                     EmbdSize:int,
 
-                     skip: int              = utils.config['Training']['Constant_feature_LSTM']['Stride'],
-                     SEQUENCE_LENGTH:int    = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
-                     hidden_dim:int         = utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
-                     Autoencoder_CNN: torch.nn.Module| None = None) -> None:
+                     skip: int              = utils.config['Training']['Constant_features_Transformer']['Stride'],
+                     SEQUENCE_LENGTH:int    = utils.config['Training']['Constant_features_Transformer']['window_Lenght'],
+                     Autoencoder_CNN: torch.nn.Module| None = None,
+                     d_model: int            = utils.config['Training']['Constant_features_Transformer']['d_model'],
+
+            nhead: int              = utils.config['Training']['Constant_features_Transformer']['nhead'],
+            num_layers: int         = utils.config['Training']['Constant_features_Transformer']['num_layers'],
+            dropout: float          = float(utils.config['Training']['Constant_features_Transformer']['DropOut']),
+    ) -> None:
   
     _Ds = utils.data_set()
     _Ds.load_addresses()
     train_set, val_set = _Ds.load_datasets(
-                                           stride=utils.config['Training']['Constant_feature_LSTM']['Stride'],
-                                           sequence_length=utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],)
+                                           stride=utils.config['Training']['Constant_features_Transformer']['Stride'],
+                                           sequence_length=utils.config['Training']['Constant_features_Transformer']['window_Lenght'],)
     
     for dauther in [_Ds.train_dataset, _Ds.val_dataset]:
-        dauther.Status = utils.config['Training']['Constant_feature_LSTM']['Dataset_status']
+        dauther.Status = utils.config['Training']['Constant_features_Transformer']['Dataset_status']
         
     SROF_size = train_set[0][2].shape[1]
 
 
 
     _case   = utils.config['Dataset']['embedding']['positional_encoding']
-    if utils.config['Training']['Constant_feature_LSTM']['Dataset_status'] == 'No_reflection':
+    if utils.config['Training']['Constant_features_Transformer']['Dataset_status'] == 'No_reflection':
         Ref = True
     else:
         Ref = False
@@ -162,16 +167,17 @@ def train_lstm_model(
         raise ValueError(f"Expected exactly one checkpoint for case '{model_name_AE}', but found {len(model_addresse)}.")
     
 
-
-    model = networks.AutoEncoder_CNN_LSTM.Encoder_LSTM(
-        address_autoencoder = AE_Address,
-        proj_dim             = proj_dim,  # Adjust based on your data
-        LSTMEmbdSize        = LSTMEmbdSize,
-        hidden_dim          = hidden_dim,  # Adjust based on your model architecture
-        num_layers          = utils.config['Training']['Constant_feature_LSTM']['Num_layers'],  # Number of LSTM layers
-        dropout             = utils.config['Training']['Constant_feature_LSTM']['DropOut'],  # Dropout rate
-        Autoencoder_CNN     = Autoencoder_CNN,
-        S4_size=SROF_size
+    model = networks.Encoder_Transformer(
+        address_autoencoder=AE_Address,
+        proj_dim=proj_dim,
+        input_dim=proj_dim,
+        d_model=d_model,
+        nhead=nhead,
+        num_layers=num_layers,
+        dim_feedforward=d_model * 4,
+        S4_size=SROF_size,
+        Autoencoder_CNN=Autoencoder_CNN,
+        dropout=dropout,
     )
 
 
@@ -188,12 +194,11 @@ def train_lstm_model(
                                shuffle=False, pin_memory=True)
   
 
-    # model = LSTMModel(input_dim, hidden_dim, num_layers, dropout)
     # Define the loss function and optimizer
     # optimizer = optim.SGD(model.parameters(), lr=1e-2,)
 
     optimizer = torch.optim.AdamW(model.parameters(),
-                                  lr            = float(utils.config['Training']['Constant_feature_LSTM']['learning_rate']),
+                                  lr            = float(utils.config['Training']['Constant_features_Transformer']['learning_rate']),
                                   weight_decay  = float(utils.config['Training']['weight_decay'])
                                   )
     criterion = nn.MSELoss()
@@ -213,14 +218,14 @@ def train_lstm_model(
         device = device,
 
         Plateaued = None,
-        model_name = f"AE_CNN_LSTM_HD{hidden_dim}_SL{SEQUENCE_LENGTH}_s{skip}_w{utils.config['Training']['Constant_feature_LSTM']['window_Lenght']}_{case=}",
+        model_name = f"AE_CNN_Transformer_DM{d_model}_NH{nhead}_NL{num_layers}_SL{SEQUENCE_LENGTH}_s{skip}_w{utils.config['Training']['Constant_features_Transformer']['window_Lenght']}_{case=}",
 
         handler = handler_supervised,
         handler_postfix=save_reconstructions,
 
-        ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints','LSTM'),
+        ckpt_save_path=os.path.join(os.path.dirname(__file__),'Output', 'checkpoints','Transformer'),
         ckpt_path=None,
-        report_path=os.path.join(os.path.dirname(__file__),'Output','LSTM', 'training_report.csv'),
+        report_path=os.path.join(os.path.dirname(__file__),'Output','Transformer', 'training_report.csv'),
 
         lr_scheduler            = lr_scheduler,
         epochs                  = utils.config['Training']['num_epochs'],
@@ -235,45 +240,25 @@ def train_lstm_model(
 if __name__ == "__main__":
     Autoencoder_CNN = networks.Autoencoder_CNN
       
-    # proj_dim = 1024
-    # LSTMEmbdSize = proj_dim
-    # for case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
-    #     # for hidden_dim in utils.config['Training']['Constant_feature_LSTM']['valid_embedding']:
-    #     #     utils.config['Training']['Constant_feature_LSTM']['Hidden_size'] = int(hidden_dim)
-            
-    #     #     for sequence in utils.config['Training']['Constant_feature_LSTM']['valid_window_Lenght']:
-    #     #         utils.config['Training']['Constant_feature_LSTM']['window_Lenght'] = sequence
-    #     utils.config['Dataset']['embedding']['positional_encoding'] = case
-    #     train_lstm_model(
-    #                     hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
-    #                     _case=case,
-    #                     LSTMEmbdSize=LSTMEmbdSize,
-    #                     proj_dim=proj_dim,
-    #                     Autoencoder_CNN=Autoencoder_CNN,
-    #                     )
 
-    for hidden_dim in utils.config['Training']['Constant_feature_LSTM']['valid_window_Lenght']:
-        utils.config['Training']['Constant_feature_LSTM']['window_Lenght'] = int(hidden_dim)
+    neural_cases = [
+                    # 'CNNV1_0_128_Velocity_Ref=True_s2_w1', 
+                    # 'CNNV1_0_1024_Velocity_Ref=True_s2_w1',
+                    # 'CNNV1_0_128_Position_Ref=True_s2_w1', 
+                    # 'CNNV1_0_1024_Position_Ref=True_s2_w1',
+                    # 'CNNV1_0_128_False_Ref=True_s2_w1',
+                    'CNNV1_0_1024_False_Ref=False_s2_w1', # With reflection
+                    ]
         
-        neural_cases = [
-                        # 'CNNV1_0_128_Velocity_Ref=True_s2_w1', 
-                        # 'CNNV1_0_1024_Velocity_Ref=True_s2_w1',
-                        # 'CNNV1_0_128_Position_Ref=True_s2_w1', 
-                        # 'CNNV1_0_1024_Position_Ref=True_s2_w1',
-                        # 'CNNV1_0_128_False_Ref=True_s2_w1',
-                        'CNNV1_0_1024_False_Ref=True_s2_w1',
-                        ]
-        
-        for case in neural_cases:
-            _data = case.split('_')
-            proj_dim =  int(_data[2])
-            LSTMEmbdSize = proj_dim
+    for case in neural_cases:
+        _data = case.split('_')
+        proj_dim =  int(_data[2])
+        EmbdSize = proj_dim
 
-            utils.config['Dataset']['embedding']['positional_encoding'] = _data[3]
-            train_lstm_model(
-                            case=case,
-                            hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
-                            LSTMEmbdSize=LSTMEmbdSize,
-                            proj_dim=proj_dim,
-                            Autoencoder_CNN=Autoencoder_CNN,
-                            )
+        utils.config['Dataset']['embedding']['positional_encoding'] = _data[3]
+        train_transformer_model(
+                        case=case,
+                        EmbdSize=EmbdSize,
+                        proj_dim=proj_dim,
+                        Autoencoder_CNN=Autoencoder_CNN,
+                        )

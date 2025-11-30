@@ -230,3 +230,9 @@ def visualize_smudge_gallery(
             ax.axis("off")
 
     plt.show()
+
+if __name__ == "__main__":
+    # from utils.SmudgeNoise import visualize_smudge_gallery
+
+    visualize_smudge_gallery(num_examples=6, size_range=(10, 40), intensity_range=(-0.1, 0.1))
+    
