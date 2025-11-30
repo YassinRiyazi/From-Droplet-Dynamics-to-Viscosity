@@ -47,15 +47,23 @@ def annotating(ax: plt.Axes,
             valid_indices = np.isfinite(d)
             datasets[i] = d[valid_indices]
 
-
+    # Filter out empty datasets for range calculation
+    valid_datasets = [d for d in datasets if d.size > 0]
+    
+    if not valid_datasets:
+        print("All datasets are empty or contain only invalid values. Skipping annotation.")
+        return
 
     # Calculate data range for dynamic offset
-    data_max = max(np.max(data) for data in datasets)
-    data_min = min(np.min(data) for data in datasets)
+    data_max = max(np.max(data) for data in valid_datasets)
+    data_min = min(np.min(data) for data in valid_datasets)
     data_range = data_max - data_min if data_max != data_min else 1.0
     # offset_step = 0.1 * data_range  # Vertical offset for each annotation
 
     for idx, (data, name) in enumerate(zip(datasets, dataset_names)):
+        if data.size == 0:
+            continue
+            
         min_value = np.min(data)
         min_epoch = np.argmin(data)
 

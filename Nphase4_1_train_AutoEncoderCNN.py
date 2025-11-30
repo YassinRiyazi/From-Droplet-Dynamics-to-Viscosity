@@ -36,6 +36,10 @@ torch.set_float32_matmul_precision('medium')
 if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
 
+if utils.config['Training']['Constant_feature_AE']['Dataset_status'] == 'No_reflection':
+    additional_flag = False
+else:
+    additional_flag = True
 
 def Plateaued_Closed(save_model:Callable[..., None],
               model:torch.nn.Module,
@@ -71,14 +75,13 @@ def handler_selfSupervised_dataHandler(Args: tuple[torch.Tensor, torch.Tensor],
     return data, model(data)
 
 def handler_selfSupervised_loss(criterion, output, data):
-    # breakpoint()
-    return  criterion(output, data) #+
+    return  criterion(output, data)
 
 def handler_selfSupervised(Args:tuple[torch.Tensor, torch.Tensor],
                            criterion: nn.Module,
                            model: nn.Module,
                            device: torch.device = 'cuda',
-                           additional: Optional[bool] = utils.config['Dataset']['reflection_removal']==False,
+                           additional: Optional[bool] = additional_flag,
                            Scale: float = 1,
                            ) -> tuple[torch.Tensor, torch.Tensor]:
     
@@ -197,7 +200,6 @@ def trainer(
     ckpt_save_path: str = os.path.join(os.path.dirname(__file__), 'checkpoints'),
     report_path: str = os.path.join(os.path.dirname(__file__),'Output', 'training_report.csv'),
     ckpt_path: str|None = None,
-    AElayers: int = 9,
 
     use_hard_negative_mining:   bool    = utils.config['Training']['hard_negative_mining'],
     hard_mining_freq:           int     = utils.config['Training']['hard_mining_freq'],
@@ -206,42 +208,38 @@ def trainer(
     device: str                         = 'cuda' if torch.cuda.is_available() else 'cpu',
     DropOut:                    bool    = utils.config['Training']['Constant_feature_AE'].get('DropOut', False)
 ):
+    # Phase 1. Load datasets
     _Ds = utils.data_set()
     _Ds.load_addresses()
     train_dataset, val_dataset = _Ds.load_datasets(
                                                    stride=utils.config['Training']['Constant_feature_AE']['Stride'],
                                                   sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
                                                   )
-    
-    # plot a sample from dataset
-    #   
+    for dauther in [_Ds.train_dataset, _Ds.val_dataset]:
+        dauther.Status = utils.config['Training']['Constant_feature_AE']['Dataset_status']
 
+
+    # Phase 2. Define model
+    model_name = _Ds.model_name
     if utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_CNNV1_0':
-        ImageSize: Tuple[int, int] = (201,201)
         model = networks.Autoencoder_CNN(DropOut = utils.config['Training']['Constant_feature_AE']["DropOut"],#.get('DropOut', True),
                                              embedding_dim = embedding_dim).to(device)
     elif utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_AttentionV1_0':
-        ImageSize: Tuple[int, int] = (201,201)
         model = networks.Autoencoder_Attention(DropOut = utils.config['Training']['Constant_feature_AE']["DropOut"],
                                              embedding_dim = embedding_dim).to(device)
-    
     else:
         raise ValueError(f"Unknown model name: {utils.config['Training']['Constant_feature_AE']['Architecture']}")
-    
-    if utils.config['Dataset']['reflection_removal']==True:
+
+    if utils.config['Training']['Constant_feature_AE']['Dataset_status'] == 'No_reflection':
+        if DropOut is True:
+            raise ValueError("DropOut must be False when training on No_reflection dataset.")
         model.DropOut = False
-        addirtioanl_flag = False
+        additional_flag = False
     else:
         model.DropOut = DropOut
-        addirtioanl_flag = True
-    ####################################################
-    # Load reflection removal datasets if needed
-    ####################################################
-    # utils.config['Dataset']['reflection_removal'] = True
-    train_dataset, val_dataset = _Ds.reflectionReturn_Setter(flag=False)
-    model_name = _Ds.model_name
-
-    # Optimize DataLoader
+        additional_flag = True
+    
+    # Phase 3. DataLoader and Optimizer
     train_loader    = DataLoader(train_dataset, batch_size=utils.config['Training']['batch_size'], 
                                  num_workers=utils.config['Training']['num_workers'], shuffle=True, pin_memory=True)
     val_loader      = DataLoader(val_dataset, batch_size=utils.config['Training']['batch_size'], 
@@ -264,12 +262,12 @@ def trainer(
     else:
         scheduler   = lr_scheduler.ExponentialLR(optimizer, gamma=0.85)  # Divide by 5 every epoch 0.2
 
-    # Compile the model for speedup on modern GPUs
-    try:
-        model = torch.compile(model)
-        print("Model compiled with torch.compile()")
-    except Exception as e:
-        print(f"Could not compile model: {e}")
+    # # Compile the model for speedup on modern GPUs
+    # try:
+    #     model = torch.compile(model)
+    #     print("Model compiled with torch.compile()")
+    # except Exception as e:
+    #     print(f"Could not compile model: {e}")
 
     # Train the model
     model, optimizer, report = deeplearning.train(
@@ -278,7 +276,7 @@ def trainer(
         val_loader=val_loader,
 
         ckpt_path= ckpt_path,
-        additional_flag=addirtioanl_flag,
+        additional_flag=additional_flag,
 
         criterion=criterion,
         optimizer=optimizer,
@@ -304,6 +302,7 @@ def trainer(
     
 if __name__ == '__main__':
     
+    utils.config['Dataset']['reflection_removal'] = True
     
     for _case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
         utils.config['Dataset']['embedding']['positional_encoding'] = _case

@@ -468,7 +468,7 @@ def train(
                 "batch_size": float(Args[0].size(0)), "batch_index": float(batch_idx),
                 "loss_batch": float(loss.item()),
                 "avg_train_loss_till_current_batch": float(loss_avg_train.avg),
-                "avg_val_loss_till_current_batch": np.nan,
+                "avg_val_loss_till_current_batch": "",
             }
             
             # Append to CSV file immediately
@@ -509,7 +509,7 @@ def train(
                     "learning_rate": float(optimizer.param_groups[0]["lr"]),
                     "batch_size": float(Args[0].size(0)), "batch_index": float(batch_idx),
                     "loss_batch": float(loss.item()),
-                    "avg_train_loss_till_current_batch": np.nan,
+                    "avg_train_loss_till_current_batch": "",
                     "avg_val_loss_till_current_batch": float(loss_avg_val.avg),
                 }
                 

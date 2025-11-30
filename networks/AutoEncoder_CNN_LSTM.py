@@ -10,13 +10,6 @@ import  os
 import  torch 
 import  torch.nn                as      nn
 from    typing                  import  Union
-if __name__ == "__main__":
-    # from AutoEncoder_CNNV2_0 import  Autoencoder_CNN as Autoencoder_CNNV2
-    from AutoEncoder_CNNV1_0 import  Autoencoder_CNN as Autoencoder_CNNV1
-else:
-    # from    .AutoEncoder_CNNV2_0    import  Autoencoder_CNN as Autoencoder_CNNV2
-    from    .AutoEncoder_CNNV1_0    import  Autoencoder_CNN as Autoencoder_CNNV1
-import  glob
 
 class LSTMModel(nn.Module):
     def __init__(self, LSTMEmbdSize: int, hidden_dim: int, num_layers: int, dropout: float, device: torch.device|None = None) -> None:
@@ -103,7 +96,8 @@ class Encoder_LSTM(torch.nn.Module):
                  hidden_dim:int  = 128 ,  # hidden dimension
                  num_layers:int  = 2   ,  # number of LSTM layers
                  dropout:float   = 0.2 ,  # dropout rate
-                 Autoencoder_CNN: torch.nn.Module|None = None) -> None:
+                 Autoencoder_CNN: torch.nn.Module|None = None,
+                 S4_size:int|None = None) -> None:
         """
         Initializes the LSTM encoder.
         Args:
@@ -130,6 +124,11 @@ class Encoder_LSTM(torch.nn.Module):
                         }
         if self.autoencoder:
             self.load_autoencoder(address_autoencoder,Autoencoder_CNN)
+        
+        if S4_size is not None:
+            # FIXME: Adjust input dimension to include S4 features
+            # self.Properties["input_dim"] += S4_size
+            LSTMEmbdSize += S4_size
 
         self.LN = nn.LayerNorm(LSTMEmbdSize, device=self.device)  # Layer normalization layer
 
@@ -155,7 +154,8 @@ class Encoder_LSTM(torch.nn.Module):
         return x
 
     def forward(self,
-                x: torch.Tensor) -> torch.Tensor:
+                x: torch.Tensor,
+                x_additional: torch.Tensor|None = None) -> torch.Tensor:
         """
         Forward pass through the encoder.
         Args:
@@ -170,6 +170,9 @@ class Encoder_LSTM(torch.nn.Module):
         """
         if self.autoencoder:
             x = self._encoder(x)
+
+        if x_additional is not None:
+            x = torch.cat((x, x_additional), dim=-1)  # Concatenate along the feature dimension
 
         # x = self.relu(self.proj(x))
 

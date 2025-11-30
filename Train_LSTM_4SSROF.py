@@ -116,7 +116,7 @@ def train_lstm_model(config: str ,
     train_set, val_set = _Ds.load_datasets(
                                            stride=utils.config['Training']['Constant_feature_LSTM']['Stride'],
                                            sequence_length=utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],)
-    
+    # FIXME: daughter dataset status setting has changes, check if this is working as intended
     for ds in train_set.DaughterSets.values():
         ds.S4ORF_only = True
     for ds in val_set.DaughterSets.values():

@@ -19,7 +19,9 @@ Dataset:
             True                  : [1280, 512], # for full landscape images
             False                 : [201 , 201]  # for cropped case
           }
-  reflection_removal    : False # whether to remove reflection artifacts in images
+
+  # deprecated please use Dataset_status in Training section for each model
+  # reflection_removal    : False # whether to remove reflection artifacts in images
 
   embedding:
     positional_encoding   : 'False' # choosing what kind of encoding to be used
@@ -42,19 +44,21 @@ Training:
   
 
   Constant_feature_AE:
+    Dataset_status: 'No_reflection' # 'No_reflection'  # 'Normal'
     Architecture: 'Autoencoder_CNNV1_0'
     Valid_architectures: ['Autoencoder_CNNV1_0', 'Autoencoder_CNNV3_0', 'Autoencoder_TransformerV2_0']
-    DropOut: True
+    DropOut: False #True
     AutoEncoder_layers: 9
     Stride                : 2 #10
     window_Lenght         : 1
     valid_latent_dim     : [128, 1024]
 
   Constant_feature_LSTM:
+    Dataset_status: 'Normal' # 'No_reflection'  # 'Normal'
     learning_rate: 1e-4
     Hidden_size: 256
-    Num_layers: 2
-    DropOut: 0.1
+    Num_layers: 3 #2  
+    DropOut: 0.2 #0.1
     Stride                : 1 
     window_Lenght         : 1
     valid_embedding       : [128, 256]
@@ -69,9 +73,9 @@ Training:
     Stride                : 1 
     window_Lenght         : 10
     valid_embedding       : [128, 256]
-    valid_window_Lenght   : [1, 10]
+    valid_window_Lenght   : [1, 10, 100]
 
-  num_workers           : 8
+  num_workers           : 16
   GPU_temperature       : 67 # temperature threshold for GPU to wait/puase training
   checkpoint_save_freq  : 10
   hard_negative_mining  : False

@@ -172,7 +172,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         self.wide               = utils.config['Dataset']['wide']
         self.super_res          = utils.config['Dataset'].get('super_resolution', False)
         self.super_res_factor   = utils.config['Dataset']['embedding'].get('super_resolution_factor', 1)
-        self.reflect_remover    = utils.config['Dataset']['reflection_removal']
+        self.reflect_remover    = utils.config['Dataset'].get('reflection_removal', False)
         self.embed_bool         = utils.config['Dataset']['embedding']['positional_encoding'] != 'False'
         self.embedID            = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_"
 
@@ -208,8 +208,11 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         self.transform2 = transforms.Compose([
              transforms.ToTensor(),])
         
-        self.ReturnReflection = False
-        self.S4ORF_only = False
+        self.Status = 'Normal'
+        ################################
+        # Deprecated options
+        # self.ReturnReflection = False
+        # self.S4ORF_only = False
 
     def PE_embedding(self,
                      size_x: int,) -> NDArray[np.uint8] | None:       
@@ -302,16 +305,26 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
     def __len__(self):
         return len(self.DataAddress)
 
-    def __getitem__(self, idx:int) -> DaughterSet_getitem_|tuple[torch.Tensor, torch.Tensor]:
-        if self.ReturnReflection == True and self.S4ORF_only == False:
-            # print("seq_tensor, seq_reflection_tensor")
-            return self.getitem_Reflection(idx)
+    def __getitem__(self, idx:int) -> DaughterSet_getitem_ | tuple[torch.Tensor, torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor]:
+        match self.Status:
+
+            case 'reflection_position':
+                # returns original image and reflection position
+                return self.getitem_Reflection(idx)
         
-        elif self.S4ORF_only == True:
-            return self.__getitem__attributes(idx)
-        
-        else:
-            return self.__getitem__Normal(idx)
+            case 'S4ORF_only':
+                # index, viscosity, SROF 
+                return self.__getitem__attributes(idx)
+            
+            case 'No_reflection':
+                self.reflect_remover = True
+                return self.__getitem__Normal(idx)
+            
+            case 'Normal':
+                return self.__getitem__Normal(idx)
+            
+            case _:
+                raise ValueError("Unrecognized subject")
 
 
     def __getitem__attributes(self, idx:int):
@@ -442,8 +455,6 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         return (seq_tensor,
                 torch.tensor(viscosity, dtype=torch.float32),
                 torch.tensor(SROF_final, dtype=torch.float32),
-                # torch.tensor(drop_position, dtype=torch.int16),
-                # torch.tensor(tilt, dtype=torch.int16)
                 )
        
     def getitem_Reflection(self, idx:int) -> tuple[torch.Tensor, torch.Tensor]:
@@ -651,16 +662,3 @@ if __name__ == "__main__":
     plt.imshow(img, cmap='gray')
     plt.axis('off')  # Hide axis
     plt.show()  
-
-    vv.ReturnReflection = True
-    cc = vv[317]
-    print(cc[0].shape,vv.__len__())
-    # plotting a tensor image
-    img = cc[0][0].squeeze().numpy()  # Remove channel dimension
-    plt.imshow(img, cmap='gray')
-    plt.axis('off')  # Hide axis
-    plt.show()  
-    img = cc[1][0].squeeze().numpy()  # Remove channel dimension
-    plt.imshow(img, cmap='gray')
-    plt.axis('off')  # Hide axis
-    plt.show()
