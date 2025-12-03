@@ -103,7 +103,7 @@ class CSVDataset(Dataset):
         self.data           = CSVReader(os.path.join(data[0],'SR_result','result.csv'))
         self.viscosity      = torch.tensor(data[1])
 
-        self.viscosity_data = pd.read_csv('/media/d2u25/Dont/frame_Extracted_Vids_DFs/DATA_Sheet.csv')
+        self.viscosity_data = pd.read_csv('/media/roboprocessing/Data/frame_Extracted_Vids_DFs/DATA_Sheet.csv')
         self.fluids         = self.viscosity_data["Bottle number"]
 
     def __len__(self):
@@ -179,13 +179,13 @@ def get_subdirectories(root_dir, max_depth=2):
 
 if __name__ == "__main__":
     # dirs = []
-    # root_directory = "/media/d2u25/Dont/frame_Extracted_Vids_DFs"
+    # root_directory = "/media/roboprocessing/Data/frame_Extracted_Vids_DFs"
     # for tilt in sorted(glob.glob(os.path.join(root_directory, "*"))):
     #     for fluid in sorted(glob.glob(os.path.join(tilt, "*"))):
     #         for idx, repetition in enumerate(sorted(glob.glob(os.path.join(fluid, "*")))):
     #             if idx < 5:
     #                 dirs.append(repetition)
-    dirs = ['/media/d2u25/Dont/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_01', '/media/d2u25/Dont/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_02', '/media/d2u25/Dont/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_03', '/media/d2u25/Dont/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_04', '/media/d2u25/Dont/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_05', '/media/d2u25/Dont/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_06', '/media/d2u25/Dont/frame_Extracted_Vids_DFs/285/S3-SNr2.6_D/frame_Extracted20250622_211755_DropNumber_01', '/media/d2u25/Dont/frame_Extracted_Vids_DFs/285/S3-SNr2.6_D/frame_Extracted20250622_211755_DropNumber_02', '/media/d2u25/Dont/frame_Extracted_Vids_DFs/285/S3-SNr2.6_D/frame_Extracted20250622_211755_DropNumber_03', '/media/d2u25/Dont/frame_Extracted_Vids_DFs/285/S3-SNr2.6_D/frame_Extracted20250622_211755_DropNumber_04']
+    dirs = ['/media/roboprocessing/Data/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_01', '/media/roboprocessing/Data/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_02', '/media/roboprocessing/Data/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_03', '/media/roboprocessing/Data/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_04', '/media/roboprocessing/Data/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_05', '/media/roboprocessing/Data/frame_Extracted_Vids_DFs/280/S3-SNr2.6_D/frame_Extracted20250622_212730_DropNumber_06', '/media/roboprocessing/Data/frame_Extracted_Vids_DFs/285/S3-SNr2.6_D/frame_Extracted20250622_211755_DropNumber_01', '/media/roboprocessing/Data/frame_Extracted_Vids_DFs/285/S3-SNr2.6_D/frame_Extracted20250622_211755_DropNumber_02', '/media/roboprocessing/Data/frame_Extracted_Vids_DFs/285/S3-SNr2.6_D/frame_Extracted20250622_211755_DropNumber_03', '/media/roboprocessing/Data/frame_Extracted_Vids_DFs/285/S3-SNr2.6_D/frame_Extracted20250622_211755_DropNumber_04']
     dataset = TimeSeriesDataset_dataframe(dirs, seq_len=100, stride=2)
 
     print(f"Total number of sequences in the dataset: {len(dataset)} {dataset[1][0].shape}")

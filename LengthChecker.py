@@ -23,7 +23,7 @@ def delete_empty_dirs(root_dir:Union[str, os.PathLike[str]]) -> None:
             os.rmdir(dirpath)
 
 if __name__ == "__main__":
-    HauptAddress = '/media/d2u25/Dont/frames_Process_30'
+    HauptAddress = '/media/roboprocessing/Data/frames_Process_30'
     # delete_empty_dirs(HauptAddress)
 
     for tilt in sorted(glob.glob(f"{HauptAddress}/*")):

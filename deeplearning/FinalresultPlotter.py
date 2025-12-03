@@ -266,5 +266,5 @@ if __name__ == "__main__":
     #                 DPI=400,
     #                 ShowPlot=True)
     # find_csv_files("/home/d2u25/Desktop/Main/Projects/Viscosity/P2NeuralNetwork/Nphase4_AutoEncoder/checkpoints")
-    # find_csv_files("/media/d2u25/Dont/checkpoints")
-    find_csv_files("/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output/checkpoints")
+    # find_csv_files("/media/roboprocessing/Data/checkpoints")
+    find_csv_files("/home/roboprocessing/Desktop/From-Droplet-Dynamics-to-Viscosity/Output/checkpoints")

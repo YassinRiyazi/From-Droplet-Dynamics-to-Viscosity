@@ -7,7 +7,7 @@ import dataset as DSS
 # --- Prepare training data ---
 stride = 4
 sequence_length = 1 
-data_dir = '/media/d2u25/Dont/frames_Process_30_Velocity_P540'
+data_dir = '/media/roboprocessing/Data/frames_Process_30_Velocity_P540'
 dicAddressesTrain, dicAddressesValidation, dicAddressesTest = DSS.dicLoader(root=data_dir)
 del dicAddressesTest
 

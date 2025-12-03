@@ -26,7 +26,7 @@ def delete_empty_dirs(root_dir:Union[str, os.PathLike[str]]) -> None:
             os.rmdir(dirpath)
 
 
-def dicMaker(HauptAddress:Union[str, os.PathLike[str]] = '/media/d2u25/Dont/frames_Process_30_Position',
+def dicMaker(HauptAddress:Union[str, os.PathLike[str]] = '/media/roboprocessing/Data/frames_Process_30_Position',
              BooldelEmpty:bool = False,
              BoolReturn:bool = False) -> None|tuple[StringListDict, StringListDict, StringListDict]:
     if BooldelEmpty:

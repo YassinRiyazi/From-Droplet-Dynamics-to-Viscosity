@@ -23,7 +23,7 @@ class loc_ImageDataset(Dataset):
     """
 
     def __init__(self,
-                 data_dir: str = "/media/d2u25/Dont/frames_Process_15_Patch",
+                 data_dir: str = "/media/roboprocessing/Data/frames_Process_15_Patch",
                  extension: str = ".png",
                  skip: int = 1,
                  sequence_length: int = 1,  # New parameter for sequence length
@@ -151,7 +151,7 @@ class loc_ImageDataset(Dataset):
 if __name__ == "__main__":
     # First run: scans and saves index
     dataset = loc_ImageDataset(
-        data_dir="/media/d2u25/Dont/frames_Process_15_Patch",
+        data_dir="/media/roboprocessing/Data/frames_Process_15_Patch",
         skip=4,
         load_from_file=False,
         use_yaml=False  # Change to True for YAML
@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
     # Subsequent run: loads from pickle or YAML instantly
     fast_dataset = loc_ImageDataset(
-        data_dir="/media/d2u25/Dont/frames_Process_15_Patch",
+        data_dir="/media/roboprocessing/Data/frames_Process_15_Patch",
         skip=4,
         load_from_file=True,
         use_yaml=False

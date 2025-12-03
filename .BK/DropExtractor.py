@@ -47,7 +47,7 @@ if __name__ == "__main__":
     # Collect all tasks
     tasks = []
 
-    HauptAddress = '/media/d2u25/Dont/frames_Process_30'
+    HauptAddress = '/media/roboprocessing/Data/frames_Process_30'
     for tilt in glob.glob(f"{HauptAddress}/*"):
         for experiment in glob.glob(os.path.join(tilt, '*')):
             for _idx, rep in enumerate(glob.glob(os.path.join(experiment, '*'))):
@@ -61,16 +61,16 @@ if __name__ == "__main__":
                     '_morphologyEx': True
                 })
 
-    # data_dir = '/media/d2u25/Dont/frames_Process_30_Velocity'
+    # data_dir = '/media/roboprocessing/Data/frames_Process_30_Velocity'
     # dicAddressesTrain, dicAddressesValidation, dicAddressesTest = DSS.dicLoader()
     # del dicAddressesTest
 
     # for key in dicAddressesTrain:
-    #     ValidPaths = [os.path.join(data_dir, os.path.relpath(path, '/media/d2u25/Dont/frames_Process_30')) for path in dicAddressesTrain[key]]
+    #     ValidPaths = [os.path.join(data_dir, os.path.relpath(path, '/media/roboprocessing/Data/frames_Process_30')) for path in dicAddressesTrain[key]]
     #     dicAddressesTrain[key] = ValidPaths
 
     # for key in dicAddressesValidation:
-    #     ValidPaths = [os.path.join(data_dir, os.path.relpath(path, '/media/d2u25/Dont/frames_Process_30')) for path in dicAddressesValidation[key]]
+    #     ValidPaths = [os.path.join(data_dir, os.path.relpath(path, '/media/roboprocessing/Data/frames_Process_30')) for path in dicAddressesValidation[key]]
     #     dicAddressesValidation[key] = ValidPaths
 
     # for key in dicAddressesTrain:

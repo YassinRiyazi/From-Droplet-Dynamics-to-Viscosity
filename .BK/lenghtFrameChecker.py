@@ -10,7 +10,7 @@ import glob
 import numpy as np
 
 if __name__ == "__main__":
-    for tilt in sorted(glob.glob("/media/d2u25/Dont/frames_Process_30/*")):
+    for tilt in sorted(glob.glob("/media/roboprocessing/Data/frames_Process_30/*")):
         for experiment in sorted(glob.glob(os.path.join(tilt,'*'))):
             length: dict[str, int] = {}
             for rep in sorted(glob.glob(os.path.join(experiment,'*'))):

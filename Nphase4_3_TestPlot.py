@@ -233,9 +233,9 @@ if __name__ == "__main__":
                       _case=_case,)
     
     if _case == 'Velocity':
-        root = '/media/d2u25/Dont/frames_Process_30_Velocity'
+        root = '/media/roboprocessing/Data/frames_Process_30_Velocity'
     elif _case == 'default':
-        root = '/media/d2u25/Dont/frames_Process_30'
+        root = '/media/roboprocessing/Data/frames_Process_30'
 
     dicAddressesTrain, dicAddressesValidation, dicAddressesTest = DSS.dicLoader(root = root)
     del dicAddressesTrain, dicAddressesValidation

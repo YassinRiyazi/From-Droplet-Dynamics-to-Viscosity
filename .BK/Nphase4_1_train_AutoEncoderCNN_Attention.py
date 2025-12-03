@@ -37,7 +37,7 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
 
 # Set float32 matrix multiplication precision to medium
-torch.set_float32_matmul_precision('medium')
+torch.set_float32_matmul_precision('highest')
 if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
 
@@ -254,34 +254,34 @@ def trainer(
 
     _Ds = utils.data_set()
     _Ds.load_addresses()
-    train_dataset, val_dataset = _Ds.load_datasets(embedding_dim=embedding_dim,
-                                                   stride=utils.config['Training']['Constant_feature_AE']['Stride'],
-                                                  sequence_length=utils.config['Training']['Constant_feature_AE']['window_Lenght']
+    train_dataset, val_dataset = _Ds.load_datasets(
+                                                   stride=utils.config['Training']['Constant_features_Transformer']['Stride'],
+                                                  sequence_length=utils.config['Training']['Constant_features_Transformer']['window_Lenght']
                                                   )
+    for dauther in [_Ds.train_dataset, _Ds.val_dataset]:
+        dauther.Status = utils.config['Training']['Constant_features_Transformer']['Dataset_status']
     
     
     
+    # Phase 2. Define model
+    model_name = _Ds.model_name
     if utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_CNNV1_0':
-        ImageSize: Tuple[int, int] = (201,201)
         model = networks.Autoencoder_CNN(DropOut = utils.config['Training']['Constant_feature_AE']["DropOut"],#.get('DropOut', True),
                                              embedding_dim = embedding_dim).to(device)
     elif utils.config['Training']['Constant_feature_AE']['Architecture'] == 'Autoencoder_AttentionV1_0':
-        ImageSize: Tuple[int, int] = (201,201)
         model = networks.Autoencoder_Attention(DropOut = utils.config['Training']['Constant_feature_AE']["DropOut"],
                                              embedding_dim = embedding_dim).to(device)
-    
     else:
-        raise ValueError(f"Unknown model name: {utils.config['Training']['Constant_feature_AE']['Architecture']}")
-    
-    if utils.config['Dataset']['reflection_removal']==True:
+        raise ValueError(f"Unknown model name")
+
+    if utils.config['Training']['Constant_features_Transformer']['Dataset_status'] == 'No_reflection':
+        if DropOut is True:
+            raise ValueError("DropOut must be False when training on No_reflection dataset.")
         model.DropOut = False
-        addirtioanl_flag = False
+        additional_flag = False
     else:
         model.DropOut = DropOut
-        addirtioanl_flag = True
-   
-    train_dataset, val_dataset = _Ds.reflectionReturn_Setter(flag=True)
-    model_name = _Ds.model_name
+        additional_flag = True
 
     # Optimize DataLoader
     train_loader    = DataLoader(train_dataset, batch_size=utils.config['Training']['batch_size'], 
@@ -290,7 +290,7 @@ def trainer(
                                  num_workers=utils.config['Training']['num_workers'], shuffle=False, pin_memory=True)
 
     optimizer       = AdamW(model.parameters(), 
-                            lr=float(utils.config['Training']['learning_rate']), 
+                            lr=1e-5,#float(utils.config['Training']['learning_rate']), 
                             weight_decay=float(utils.config['Training']['weight_decay'])
                             )
 
@@ -318,7 +318,7 @@ def trainer(
         val_loader=val_loader,
 
         ckpt_path= ckpt_path,
-        additional_flag=addirtioanl_flag,
+        additional_flag=additional_flag,
 
         criterion=criterion,
         optimizer=optimizer,
@@ -336,7 +336,8 @@ def trainer(
         hard_mining_freq=hard_mining_freq,
         num_hard_samples=num_hard_samples,
         new_lr=float(utils.config['Training']['learning_rate']),
-        use_amp=True,
+        use_amp=False,
+        enable_live_plot = False,
     )
 
     

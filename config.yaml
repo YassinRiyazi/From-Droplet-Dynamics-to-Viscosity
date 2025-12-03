@@ -12,7 +12,8 @@ super_resolution_cropped : 'databases_SR'
 SROF: 'result.csv' #'result_2Pass_corrected.csv'
 
 Dataset:
-  Dataset_Root          : '/media/d25u2/Dont/Viscosity' # base path to the dataset
+  userName            : 'roboprocessing' # username for the system
+  Dataset_Root          : '/media/roboprocessing/Data/Viscosity' # base path to the dataset
   wide                  : False # using the full landscape images or only cropped droplets
   super_resolution      : False  # whether to use super-resolution cropped images
   resize: {
@@ -20,8 +21,15 @@ Dataset:
             False                 : [201 , 201]  # for cropped case
           }
 
+  smudge_noise:
+    enabled           : False
+    num_smudges       : 4
+    size_range        : [6, 32]
+    intensity_range   : [-0.2, 0.2]
+    softness          : 0.35
+
   # deprecated please use Dataset_status in Training section for each model
-  # reflection_removal    : False # whether to remove reflection artifacts in images
+  reflection_removal    : True # whether to remove reflection artifacts in images
 
   embedding:
     positional_encoding   : 'False' # choosing what kind of encoding to be used
@@ -60,11 +68,12 @@ Training:
     Num_layers: 3 #2  
     DropOut: 0.2 #0.1
     Stride                : 1 
-    window_Lenght         : 1
+    window_Lenght         : 10
     valid_embedding       : [128, 256]
     valid_window_Lenght   : [1, 10]
 
   Constant_features_Transformer:
+    Dataset_status: 'Normal' # 'No_reflection'  # 'Normal'
     learning_rate: 1e-4
     d_model: 256
     nhead: 8

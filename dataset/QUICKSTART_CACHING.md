@@ -14,7 +14,7 @@
 from dataset.MotherFolderDataset import MotherFolderDataset, dicLoader
 
 # Load addresses
-dicAddressesTrain, _, _ = dicLoader(root="/media/d25u2/Dont/Viscosity")
+dicAddressesTrain, _, _ = dicLoader(root="/media/roboprocessing/Data/Viscosity")
 
 # Create dataset (slow first time)
 dataset = MotherFolderDataset(
@@ -40,7 +40,7 @@ cache_path = "Output/dataset_cache_train.pkl"
 if os.path.exists(cache_path):
     dataset = MotherFolderDataset.load_cache(cache_path)  # Fast!
 else:
-    dicAddressesTrain, _, _ = dicLoader(root="/media/d25u2/Dont/Viscosity")
+    dicAddressesTrain, _, _ = dicLoader(root="/media/roboprocessing/Data/Viscosity")
     dataset = MotherFolderDataset(
         dicAddresses=dicAddressesTrain,
         stride=1,

@@ -59,7 +59,7 @@ def DfLoader(sequence_length: int,
              stride: int,
              batch_size: int) -> DsL:
     dicAddressesTrain, dicAddressesValidation, dicAddressesTest = DSS.dicLoader(rootAddress="Projects/Viscosity/",
-                                                                                root = '/media/d2u25/Dont/frame_Extracted_Vids_DFs/')
+                                                                                root = '/media/roboprocessing/Data/frame_Extracted_Vids_DFs/')
     del dicAddressesTest
     
     _dirs = []
@@ -125,19 +125,19 @@ def loadModelDatasets(
     extension = ".png"
      # Data directory based on case
     if _case == 'default':
-        data_dir            = "/media/d2u25/Dont/frames_Process_30"
+        data_dir            = "/media/roboprocessing/Data/frames_Process_30"
     elif _case == 'Position':
-        data_dir            = "/media/d2u25/Dont/frames_Process_30_Position"
+        data_dir            = "/media/roboprocessing/Data/frames_Process_30_Position"
     elif _case == 'Velocity':
-        data_dir            = "/media/d2u25/Dont/frames_Process_30_Velocity"
+        data_dir            = "/media/roboprocessing/Data/frames_Process_30_Velocity"
     elif _case == 'NoRef':
-        data_dir            = "/media/d2u25/Dont/frames_Process_30_LightSource"
+        data_dir            = "/media/roboprocessing/Data/frames_Process_30_LightSource"
     elif _case == 'DropCoordinate':
         reduced             = True
-        data_dir            = "/media/d2u25/Dont/frames_Process_30_PINN"
+        data_dir            = "/media/roboprocessing/Data/frames_Process_30_PINN"
         extension           = ".pkl"
     elif _case == 'Dataframe':
-        data_dir            = "/media/d2u25/Dont/frame_Extracted_Vids_DFs"
+        data_dir            = "/media/roboprocessing/Data/frame_Extracted_Vids_DFs"
         extension           = ".csv"
         return None, *DfLoader(sequence_length, stride, batch_size)
     else:

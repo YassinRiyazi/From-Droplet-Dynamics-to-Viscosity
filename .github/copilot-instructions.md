@@ -11,7 +11,7 @@ The pipeline processes experimental droplet videos with metadata (4S-SROF: time,
 
 ### Dataset Structure
 ```
-/media/d25u2/Dont/Viscosity/
+/media/roboprocessing/Data/Viscosity/
 ├── {tilt_angle}/              # e.g., 280, 285, 290 degrees
 │   └── {fluid_name}/          # e.g., S3-SNr2.6_D
 │       └── {experiment}/      # e.g., T528_01_0.017002
@@ -127,7 +127,7 @@ Integrate into `DaughterFolderDataset.__init__()`:
 ```python
 # Check dataset splits exist
 from dataset import dicLoader
-dicTrain, dicVal, dicTest = dicLoader(root="/media/d25u2/Dont/Viscosity")
+dicTrain, dicVal, dicTest = dicLoader(root="/media/roboprocessing/Data/Viscosity")
 
 # Inspect single fluid's data
 from dataset import DaughterFolderDataset

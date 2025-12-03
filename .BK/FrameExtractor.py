@@ -26,7 +26,7 @@ if __name__ == "__main__":
     fps = 30
 
     VideosAddress: list[str] = []
-    for tilt in glob.glob("/media/d2u25/Dont/Teflon_VideoProcess/*"):
+    for tilt in glob.glob("/media/roboprocessing/Data/Teflon_VideoProcess/*"):
         for experiment in glob.glob(os.path.join(tilt,'*')):
             if experiment in ['S3-SNr3.04_D','S3-SNr3.08_D']:#'S3-90Per_D',
                 continue

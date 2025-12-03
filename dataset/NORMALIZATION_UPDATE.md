@@ -90,7 +90,7 @@ The SROF normalization complements but is separate from image normalization:
 from dataset import MotherFolderDataset, dicLoader
 
 # Load addresses
-dicTrain, dicVal, _ = dicLoader(root="/media/d25u2/Dont/Viscosity")
+dicTrain, dicVal, _ = dicLoader(root="/media/roboprocessing/Data/Viscosity")
 
 # Create dataset (computes stats on first run)
 train_ds = MotherFolderDataset(dicTrain, stride=2, sequence_length=10)

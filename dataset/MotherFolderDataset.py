@@ -459,7 +459,7 @@ def split_dataset(dataset: MotherFolderDataset,
 
 def pathCompleterList(paths:List[Union[str, os.PathLike[str]]],
                       root:Union[str, os.PathLike[str]]) -> List[str]:
-    ValidPaths = [os.path.join(root, os.path.relpath(path, '/media/d2u25/Dont/frames_Process_30')) for path in paths]
+    ValidPaths = [os.path.join(root, os.path.relpath(path, '/media/roboprocessing/Data/frames_Process_30')) for path in paths]
     return [path for path in ValidPaths if os.path.exists(path)] # type: ignore
 
 def dicLoader(root:Union[None,str, os.PathLike[str]]=None,
@@ -488,7 +488,7 @@ def dicLoader(root:Union[None,str, os.PathLike[str]]=None,
     return dicAddressesTrain, dicAddressesValidation, dicAddressesTest
 
 def save_dataset_with_splits(root: str = os.path.join(os.path.dirname(__file__), "dataset_splits"),
-                             DataAddress: str = "/media/d2u25/Dont/frames_Process_30",
+                             DataAddress: str = "/media/roboprocessing/Data/frames_Process_30",
                                  ) -> None:
     fluidNames: set[str] = set() # type: ignore
     for tilt in glob.glob(os.path.join(DataAddress, "*")):
@@ -570,15 +570,15 @@ def DS_limiter_inv(dataset: StringListDict,
 if __name__ == "__main__":
     
     # # phase 1: create dataset splits and save them
-    # save_dataset_with_splits(DataAddress="/media/d25u2/Dont/Viscosity")
+    save_dataset_with_splits(DataAddress="/media/roboprocessing/Data/Viscosity")
 
     # Phase 2: Load dataset splits and create MotherFolderDataset instances
     # Load dataset splits
     dicAddressesTrain, dicAddressesValidation, dicAddressesTest = dicLoader(
-        root="/media/d25u2/Dont/Viscosity"
+        root="/media/roboprocessing/Data/Viscosity"
     )
 
-    cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
+    cache_dir = "/home/roboprocessing/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
     os.makedirs(cache_dir, exist_ok=True)
     ID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
     cache_train = os.path.join(cache_dir, f"dataset_cache_train_{ID}.pkl")
@@ -694,4 +694,4 @@ if __name__ == "__main__":
 
     #%% Debugging DataSetShit
     # dicAddressesTrain, dicAddressesValidation, dicAddressesTest = dicLoader(rootAddress="Projects/Viscosity/",
-    #                                                                         root = "/media/d2u25/Dont/frames_Process_30")
+    #                                                                         root = "/media/roboprocessing/Data/frames_Process_30")

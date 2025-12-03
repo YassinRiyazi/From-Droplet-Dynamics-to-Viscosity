@@ -96,7 +96,7 @@ def train_lstm_model(CnnAutoEncoderEmbdSize = 256,
                      stride=4,
                      epochs = 5,
                      GPU_temperature =  utils.config['Training']['GPU_temperature'],
-                     data_dir    = '/media/d2u25/Dont/frames_Process_15_Patch') -> None:
+                     data_dir    = '/media/roboprocessing/Data/frames_Process_15_Patch') -> None:
     """
     This function is a placeholder for training the LSTM model.
     It can be extended to include specific logic for training tasks.
@@ -104,7 +104,7 @@ def train_lstm_model(CnnAutoEncoderEmbdSize = 256,
     batch_size  = 800
     
     dirs = []
-    root_directory = "/media/d2u25/Dont/frame_Extracted_Vids_DFs"
+    root_directory = "/media/roboprocessing/Data/frame_Extracted_Vids_DFs"
     for tilt in sorted(glob.glob(os.path.join(root_directory, "*"))):
         for fluid in sorted(glob.glob(os.path.join(tilt, "*"))):
             for idx, repetition in enumerate(sorted(glob.glob(os.path.join(fluid, "*")))):
@@ -112,7 +112,7 @@ def train_lstm_model(CnnAutoEncoderEmbdSize = 256,
                     dirs.append(repetition)
 
     dicAddressesTrain, dicAddressesValidation, dicAddressesTest = DSS.dicLoader(rootAddress="Projects/Viscosity/",
-                                                                                root = '/media/d2u25/Dont/frame_Extracted_Vids_DFs/')
+                                                                                root = '/media/roboprocessing/Data/frame_Extracted_Vids_DFs/')
     del dicAddressesTest
     
     _dirs = []
@@ -204,7 +204,7 @@ def train_lstm_model(CnnAutoEncoderEmbdSize = 256,
 
 
 if __name__ == "__main__":
-    ##### data_dir    = '/media/d2u25/Dont/frames_Process_15_Patch'
+    ##### data_dir    = '/media/roboprocessing/Data/frames_Process_15_Patch'
     CnnAutoEncoderEmbdSize = 8
     for SEQUENCE_LENGTH in [1, 10, 100]:
         for hidden_dim in ([256]):
@@ -214,4 +214,4 @@ if __name__ == "__main__":
                                 hidden_dim=hidden_dim,
                                 epochs=30,
                                 GPU_temperature=70,
-                                data_dir    = '/media/d2u25/Dont/frames_Process_15_PVelocity')
+                                data_dir    = '/media/roboprocessing/Data/frames_Process_15_PVelocity')

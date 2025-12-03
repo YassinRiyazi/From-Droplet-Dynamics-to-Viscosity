@@ -31,14 +31,14 @@ class data_set:
             with open("data_config.yaml", "r") as file:
                 data_config = yaml.safe_load(file)
 
-        self.cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
+        self.cache_dir = "/home/roboprocessing/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
         if not os.path.exists(self.cache_dir):
             raise FileNotFoundError(f"Cache directory {self.cache_dir} does not exist.")
         
     
         # cache_test = os.path.join(cache_dir, f"dataset_cache_test.pkl")
         self._case      = config['Dataset']['embedding']['positional_encoding']
-        self.Ref        = config['Dataset']['reflection_removal']
+        self.Ref        = config['Dataset'].get('use_reflection_removal', False)
         self.AElayers = config['Training']['Constant_feature_AE']['AutoEncoder_layers']
         self.SuperResolution = config['Dataset']['super_resolution']
         self.data_config = data_config

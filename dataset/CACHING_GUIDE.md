@@ -17,7 +17,7 @@ Use the built-in **caching system** to save the dataset metadata once and reload
 from dataset.MotherFolderDataset import MotherFolderDataset, dicLoader
 
 # Load dataset splits
-dicAddressesTrain, _, _ = dicLoader(root="/media/d25u2/Dont/Viscosity")
+dicAddressesTrain, _, _ = dicLoader(root="/media/roboprocessing/Data/Viscosity")
 
 # Create dataset (slow first time)
 dataset = MotherFolderDataset(
@@ -54,7 +54,7 @@ if os.path.exists(cache_path):
     dataset = MotherFolderDataset.load_cache(cache_path)
 else:
     # Create from scratch and save cache
-    dicAddressesTrain, _, _ = dicLoader(root="/media/d25u2/Dont/Viscosity")
+    dicAddressesTrain, _, _ = dicLoader(root="/media/roboprocessing/Data/Viscosity")
     dataset = MotherFolderDataset(
         dicAddresses=dicAddressesTrain,
         stride=1,

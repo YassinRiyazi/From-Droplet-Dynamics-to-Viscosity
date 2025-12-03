@@ -10,7 +10,7 @@ from MotherFolderDataset import MotherFolderDataset, dicLoader
 
 def main():
     # Define cache file paths
-    cache_dir = "/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
+    cache_dir = "/home/roboprocessing/Desktop/From-Droplet-Dynamics-to-Viscosity/Output"
     os.makedirs(cache_dir, exist_ok=True)
     
     cache_train = os.path.join(cache_dir, "dataset_cache_train.pkl")
@@ -19,7 +19,7 @@ def main():
     
     # Load dataset splits
     dicAddressesTrain, dicAddressesValidation, dicAddressesTest = dicLoader(
-        root="/media/d25u2/Dont/Viscosity"
+        root="/media/roboprocessing/Data/Viscosity"
     )
     
     # ===== TRAINING DATASET =====

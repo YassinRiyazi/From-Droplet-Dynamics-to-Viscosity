@@ -34,7 +34,7 @@ def worker(args: Dict[str, object]) -> None:
     return None
 
 def list_Gen(FolderName: str) -> Tuple[List[Dict[str, object]], str]:
-    HaupftAddress = f'/media/d2u25/Dont/{FolderName}' 
+    HaupftAddress = f'/media/roboprocessing/Data/{FolderName}' 
     if 'velocity' in str.lower(FolderName):
         velocity_encoding = True
         positional_encoding = False

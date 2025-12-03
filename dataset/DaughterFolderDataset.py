@@ -75,6 +75,7 @@ else:
 
 import  utils
 from scipy.interpolate import interp1d, CubicSpline # type: ignore
+from utils.SmudgeNoise import add_smudge_noise
 
 def interpolate_motion(x: NDArray[np.int16], y: NDArray[np.int16], length: int
                        ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
@@ -188,6 +189,22 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         self.seq_len        = seq_len
         self.stride         = stride
         foldersDic          = self.loadAddresses(dirs,utils.config['image_extension'])
+
+        smudge_cfg = utils.config['Dataset'].get('smudge_noise', {})
+        self.smudge_enabled: bool = bool(smudge_cfg.get('enabled', False))
+
+        def _range_from_cfg(key: str, fallback: tuple[float, float]) -> tuple[float, float]:
+            value = smudge_cfg.get(key, fallback)
+            if isinstance(value, (list, tuple)) and len(value) >= 2:
+                return float(value[0]), float(value[1])
+            return fallback
+
+        self.smudge_generator_kwargs = {
+            "num_smudges": int(smudge_cfg.get('num_smudges', 4)),
+            "size_range": _range_from_cfg('size_range', (6.0, 32.0)),
+            "intensity_range": _range_from_cfg('intensity_range', (-0.2, 0.2)),
+            "softness": float(smudge_cfg.get('softness', 0.35)),
+        }
 
         self.DataAddress    = self.loadOrderedImages(foldersDic,
                                                     seqLength=seq_len,
@@ -449,6 +466,12 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
                 pil = Image.fromarray(pil.astype(np.uint8))
 
             data = self.transform(pil)
+            if self.smudge_enabled:
+                data = add_smudge_noise(
+                    data,
+                    per_sample=False,
+                    generator_kwargs=self.smudge_generator_kwargs,
+                )
             seq.append(data)
 
         seq_tensor = torch.stack(seq)
@@ -648,17 +671,19 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    
-    vv = DaughterFolderDataset(dirs=['/media/d25u2/Dont/Viscosity/280/S5-S2.01_S20/D175220_01_4.46',
-                                    #  '/media/d25u2/Dont/Viscosity/280/S5-S2.01_S20/D175220_02_4.46',
-                                     '/media/d25u2/Dont/Viscosity/280/S5-S90per_S8/D165644_16_142.40'],
+    import matplotlib
+    matplotlib.use('TkAgg')
+
+    vv = DaughterFolderDataset(dirs=['/media/roboprocessing/Data/Viscosity/280/S5-S2.01_S20/D175220_01_4.46',
+                                    #  '/media/roboprocessing/Data/Viscosity/280/S5-S2.01_S20/D175220_02_4.46',
+                                     '/media/roboprocessing/Data/Viscosity/280/S5-S90per_S8/D165644_16_142.40'],
                          seq_len=10,
                          stride=1,)
-    
+    vv.smudge_enabled = True
     cc = vv[317]
     print(cc[0].shape,vv.__len__())
     # plotting a tensor image
     img = cc[0][0].squeeze().numpy()  # Remove channel dimension
-    plt.imshow(img, cmap='gray')
-    plt.axis('off')  # Hide axis
-    plt.show()  
+    cv2.imshow('Image', img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()

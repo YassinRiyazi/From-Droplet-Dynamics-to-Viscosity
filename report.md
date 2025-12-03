@@ -36,7 +36,7 @@ This project aims to:
 The experimental dataset comprises high-speed video recordings of droplet dynamics on tilted surfaces. Data is organized hierarchically:
 
 ```
-/media/d25u2/Dont/Viscosity/
+/media/roboprocessing/Data/Viscosity/
 ├── {tilt_angle}/              # e.g., 280°, 285°, 290°
 │   └── {fluid_name}/          # e.g., S3-SNr2.6_D
 │       └── {experiment}/      # e.g., T528_01_0.017002
@@ -364,7 +364,7 @@ All hyperparameters are centralized in `config.yaml`:
 
 ```yaml
 Dataset:
-  Dataset_Root: '/media/d25u2/Dont/Viscosity'
+  Dataset_Root: '/media/roboprocessing/Data/Viscosity'
   reflection_removal: False
   embedding:
     positional_encoding: 'False'  # 'Position' or 'Velocity'

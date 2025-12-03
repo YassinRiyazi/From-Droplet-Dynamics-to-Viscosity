@@ -270,9 +270,9 @@ def create_save_dir(base_path: Union[str, os.PathLike[str]], model_name: str) ->
     save_dir = os.path.join(base_path, f"{model_name}_{timestamp}")
     os.makedirs(save_dir, exist_ok=True)
 
-    shutil.copyfile('/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/config.yaml',
+    shutil.copyfile('/home/roboprocessing/Desktop/From-Droplet-Dynamics-to-Viscosity/config.yaml',
                     os.path.join(save_dir, f'config.yaml'))
-    shutil.copyfile('/home/d25u2/Desktop/From-Droplet-Dynamics-to-Viscosity/data_config.yaml',
+    shutil.copyfile('/home/roboprocessing/Desktop/From-Droplet-Dynamics-to-Viscosity/data_config.yaml',
                     os.path.join(save_dir, f'data_config.yaml'))
     
     return save_dir
