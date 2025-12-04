@@ -135,9 +135,9 @@ def train_lstm_model(config: str ,
     print(f"Training LSTM model with embedding case: {_case}, hidden_dim: {hidden_dim}, sequence_length: {SEQUENCE_LENGTH}, stride: {skip}")
 
     _case   = utils.config['Dataset']['embedding']['positional_encoding']
-    Ref     = utils.config['Dataset']['reflection_removal']
+    # Ref     = utils.config['Dataset']['reflection_removal']
     ID      = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Constant_feature_LSTM']['Stride']}_w{utils.config['Training']['Constant_feature_LSTM']['window_Lenght']}"
-    model_name_AE = f"CNN_AE_{utils.config['Training']['Constant_feature_AE']['AutoEncoder_layers']}_{utils.config['Training']['Constant_feature_AE']['Architecture']}_{_case}_{proj_dim}_{Ref=}_{ID}"
+    model_name_AE = f"CNN_AE_{utils.config['Training']['Constant_feature_AE']['AutoEncoder_layers']}_{utils.config['Training']['Constant_feature_AE']['Architecture']}_{_case}_{proj_dim}_{ID}"
     
     model_name_AE = model_name_AE.replace('_Ref','_self.Ref')
 

@@ -54,13 +54,13 @@ Training:
     valid_latent_dim     : [128, 1024]
 
   Constant_feature_LSTM:
-    Dataset_status: 'Normal' # 'No_reflection'  # 'Normal'
+    Dataset_status: 'S4ORF_only' # 'No_reflection'  # 'Normal'
     learning_rate: 1e-4
     Hidden_size: 256
     Num_layers: 3 #2  
     DropOut: 0.2 #0.1
-    Stride                : 1 
-    window_Lenght         : 1
+    Stride                : 1
+    window_Lenght         : 10
     valid_embedding       : [128, 256]
     valid_window_Lenght   : [1, 10]
 

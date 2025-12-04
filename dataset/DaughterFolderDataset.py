@@ -422,7 +422,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             final_parts.append(tilt_col)
 
         if self.feature_selection.use_count:
-            count_col = np.full((_lenght, 1), count, dtype=np.float32) / 5000.0
+            count_col = np.full((_lenght, 1), count, dtype=np.float32) / 7500.0
             final_parts.append(count_col)
 
         if combined.shape[1] > 0:

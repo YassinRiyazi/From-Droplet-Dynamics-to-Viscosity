@@ -235,11 +235,11 @@ def train_transformer_model(
 
 
     _case = utils.config['Dataset']['embedding']['positional_encoding']
-    Ref = utils.config['Dataset']['reflection_removal']
+    # Ref = utils.config['Dataset']['reflection_removal']
     ID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
-    model_name_AE = f"CNN_AE_{utils.config['Training']['Constant_feature_AE']['AutoEncoder_layers']}_{utils.config['Training']['Constant_feature_AE']['Architecture']}_{_case}_{proj_dim}_{Ref=}_{ID}"
+    model_name_AE = f"CNN_AE_{utils.config['Training']['Constant_feature_AE']['AutoEncoder_layers']}_{utils.config['Training']['Constant_feature_AE']['Architecture']}_{_case}_{proj_dim}_{ID}"
     
-    model_name_AE = model_name_AE.replace('_Ref', '_self.Ref')
+    # model_name_AE = model_name_AE.replace('_Ref', '_self.Ref')
     model_addresses = sorted(glob.glob(f'Output/checkpoints/AE_CNN/*{model_name_AE}*/*.pt'))
     
     if len(model_addresses) == 1:

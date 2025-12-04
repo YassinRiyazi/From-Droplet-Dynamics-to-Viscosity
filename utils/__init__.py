@@ -38,7 +38,7 @@ class data_set:
     
         # cache_test = os.path.join(cache_dir, f"dataset_cache_test.pkl")
         self._case      = config['Dataset']['embedding']['positional_encoding']
-        self.Ref        = config['Dataset']['reflection_removal']
+        # self.Ref        = config['Dataset']['reflection_removal']
         self.AElayers = config['Training']['Constant_feature_AE']['AutoEncoder_layers']
         self.SuperResolution = config['Dataset']['super_resolution']
         self.data_config = data_config
@@ -105,7 +105,7 @@ class data_set:
 
         self.cache_train    = os.path.join(self.cache_dir, f"dataset_cache_train_{self.id}.pkl")
         self.cache_val      = os.path.join(self.cache_dir, f"dataset_cache_val_{self.id}.pkl")
-        self.model_name = f"CNN_AE_{self.AElayers}_{config['Training']['Constant_feature_AE']['Architecture']}_{self._case}_{embedding_dim}_{self.Ref=}_{self.id}"
+        self.model_name = f"CNN_AE_{self.AElayers}_{config['Training']['Constant_feature_AE']['Architecture']}_{self._case}_{embedding_dim}_{self.id}"
         # ===== TRAINING DATASET =====
         if os.path.exists(self.cache_train):
             print("Loading TRAINING dataset from cache...")
