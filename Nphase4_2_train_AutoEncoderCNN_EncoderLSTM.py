@@ -37,6 +37,7 @@ utils.set_randomness(42)
 def handler_supervised(Args:tuple[torch.Tensor, torch.Tensor],
                        criterion: nn.Module,
                        model: nn.Module,
+                       b_augmer: bool = utils.config['Training']['Constant_feature_LSTM']['augmented'],
                        **kwargs) -> tuple[torch.Tensor, torch.Tensor]:
     """
     This function is a placeholder for handling supervised training.
@@ -45,8 +46,11 @@ def handler_supervised(Args:tuple[torch.Tensor, torch.Tensor],
     Args = [arg.contiguous().to(device) for arg in Args]
     model.lstm.reset_states(Args[0])  # Reset LSTM states before processing a new batch
     
-    output = model(Args[0],
-                   Args[2])  # Forward pass with additional input
+    if b_augmer:
+        output = model(Args[0], Args[2])  # Forward pass with additional input
+    else:
+        output = model(Args[0])  # Forward pass without additional input
+    
     loss = criterion(output, Args[1].view(-1))
     return output, loss
 
@@ -59,6 +63,7 @@ def save_reconstructions(
                          device: torch.device,
                          save_dir: str,
                          epoch: int,
+                         b_augmer: bool = utils.config['Training']['Constant_feature_LSTM']['augmented'],
                          num_samples: int = 64) -> None:
     """Save a batch of original and reconstructed images from the dataloader and save target/predicted values to a text file.
     Args:
@@ -78,8 +83,11 @@ def save_reconstructions(
         for i, Args in enumerate(dataloader):
             Args = [arg.contiguous().to(device) for arg in Args]
             model.lstm.reset_states(Args[0])  # Reset LSTM states before processing a new batch
-            output = model(Args[0], 
-                           Args[2])  # Forward pass with additional input
+
+            if b_augmer:
+                output = model(Args[0], Args[2])  # Forward pass with additional input
+            else:
+                output = model(Args[0])  # Forward pass without additional input
 
             target = Args[1].view(-1)
             predicted = output.view(-1)
@@ -132,23 +140,41 @@ def train_lstm_model(
                      Autoencoder_CNN: torch.nn.Module| None = None) -> None:
   
     _Ds = utils.data_set()
-    _Ds.load_addresses()
     train_set, val_set = _Ds.load_datasets(
                                            stride=utils.config['Training']['Constant_feature_LSTM']['Stride'],
                                            sequence_length=utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],)
     
-    for dauther in [_Ds.train_dataset, _Ds.val_dataset]:
-        dauther.Status = utils.config['Training']['Constant_feature_LSTM']['Dataset_status']
-        
-    SROF_size = train_set[0][2].shape[1]
+    for ds in [_Ds.train_dataset, _Ds.val_dataset]:
+        for _, dauther in ds.DaughterSets.items():
+            if hasattr(dauther, 'Status'):
+                dauther.Status = utils.config['Training']['Constant_feature_LSTM']['Dataset_status']
+            else:
+                raise AttributeError(f"Daughter set does not have 'Status' attribute.")
+    
+    if utils.config['Training']['Constant_feature_LSTM']['augmented']:
+        SROF_size = train_set[0][2].shape[1]
+    else:
+        SROF_size = 0
 
 
 
     _case   = utils.config['Dataset']['embedding']['positional_encoding']
     if utils.config['Training']['Constant_feature_LSTM']['Dataset_status'] == 'No_reflection':
         Ref = True
+        for dauther in [_Ds.train_dataset, _Ds.val_dataset]:
+            dauther.reflect_remover = True
+        
     else:
         Ref = False
+
+    # save dataset sample
+    import cv2
+    sample = train_set[0][0].numpy()
+    sample = (sample - np.min(sample)) / (np.max(sample) - np.min(sample)) * 255.0
+    sample = sample.astype(np.uint8)
+    cv2.imwrite(f'Output/samples/LSTM_input_sample_{case}.png', sample[0, :, :, 0])
+
+    print(f"Training LSTM model for case: {case} with proj_dim: {proj_dim}, LSTMEmbdSize: {LSTMEmbdSize}, hidden_dim: {hidden_dim}, SEQUENCE_LENGTH: {SEQUENCE_LENGTH}, skip: {skip}")
 
     ID = f"{utils.config['Dataset']['embedding']['positional_encoding']}_s{utils.config['Training']['Constant_feature_AE']['Stride']}_w{utils.config['Training']['Constant_feature_AE']['window_Lenght']}"
     # ID = _Ds.id
@@ -233,35 +259,22 @@ def train_lstm_model(
 
 
 if __name__ == "__main__":
+    if utils.config['Training']['Constant_features_Transformer']['Dataset_status'] == 'No_reflection':
+        Ref = True
+    else:
+        Ref = False
     Autoencoder_CNN = networks.Autoencoder_CNN
-      
-    # proj_dim = 1024
-    # LSTMEmbdSize = proj_dim
-    # for case in reversed(utils.config['Dataset']['embedding']['Valid_encoding']):
-    #     # for hidden_dim in utils.config['Training']['Constant_feature_LSTM']['valid_embedding']:
-    #     #     utils.config['Training']['Constant_feature_LSTM']['Hidden_size'] = int(hidden_dim)
-            
-    #     #     for sequence in utils.config['Training']['Constant_feature_LSTM']['valid_window_Lenght']:
-    #     #         utils.config['Training']['Constant_feature_LSTM']['window_Lenght'] = sequence
-    #     utils.config['Dataset']['embedding']['positional_encoding'] = case
-    #     train_lstm_model(
-    #                     hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
-    #                     _case=case,
-    #                     LSTMEmbdSize=LSTMEmbdSize,
-    #                     proj_dim=proj_dim,
-    #                     Autoencoder_CNN=Autoencoder_CNN,
-    #                     )
-
+    
     for hidden_dim in utils.config['Training']['Constant_feature_LSTM']['valid_window_Lenght']:
         utils.config['Training']['Constant_feature_LSTM']['window_Lenght'] = int(hidden_dim)
         
         neural_cases = [
-                        # 'CNNV1_0_128_Velocity_Ref=True_s2_w1', 
-                        # 'CNNV1_0_1024_Velocity_Ref=True_s2_w1',
-                        # 'CNNV1_0_128_Position_Ref=True_s2_w1', 
-                        # 'CNNV1_0_1024_Position_Ref=True_s2_w1',
-                        # 'CNNV1_0_128_False_Ref=True_s2_w1',
-                        'CNNV1_0_1024_False_Ref=True_s2_w1',
+                        # f'CNNV1_0_128_Velocity_Ref={Ref}_s2_w1', 
+                        f'CNNV1_0_1024_Velocity_Ref={Ref}_s2_w1',
+                        # f'CNNV1_0_128_Position_Ref={Ref}_s2_w1', 
+                        f'CNNV1_0_1024_Position_Ref={Ref}_s2_w1',
+                        f'CNNV1_0_128_False_Ref={Ref}_s2_w1',
+                        f'CNNV1_0_1024_False_Ref={Ref}_s2_w1', # With reflection
                         ]
         
         for case in neural_cases:
@@ -272,8 +285,10 @@ if __name__ == "__main__":
             utils.config['Dataset']['embedding']['positional_encoding'] = _data[3]
             train_lstm_model(
                             case=case,
-                            hidden_dim=utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
-                            LSTMEmbdSize=LSTMEmbdSize,
-                            proj_dim=proj_dim,
-                            Autoencoder_CNN=Autoencoder_CNN,
+                            hidden_dim      = utils.config['Training']['Constant_feature_LSTM']['Hidden_size'],
+                            LSTMEmbdSize    = LSTMEmbdSize,
+                            proj_dim        = proj_dim,
+                            Autoencoder_CNN = Autoencoder_CNN,
+                            skip            = utils.config['Training']['Constant_feature_LSTM']['Stride'],
+                            SEQUENCE_LENGTH = utils.config['Training']['Constant_feature_LSTM']['window_Lenght'],
                             )

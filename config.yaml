@@ -29,7 +29,7 @@ Dataset:
     softness          : 0.35
 
   # deprecated please use Dataset_status in Training section for each model
-  reflection_removal    : True # whether to remove reflection artifacts in images
+  # reflection_removal    : True # whether to remove reflection artifacts in images
 
   embedding:
     positional_encoding   : 'False' # choosing what kind of encoding to be used
@@ -44,7 +44,7 @@ Dataset:
 Training:
   Show_plot            : False  # whether to show training plots
   USE_pretrained_AE    : False  # whether to use a pre-trained autoencoder model
-  batch_size            : 16
+  batch_size            : 32
   learning_rate         : 1e-4
 
   weight_decay          : 1e-5
@@ -62,7 +62,8 @@ Training:
     valid_latent_dim     : [128, 1024]
 
   Constant_feature_LSTM:
-    Dataset_status: 'Normal' # 'No_reflection'  # 'Normal'
+    augmented: False
+    Dataset_status: 'No_reflection' # 'No_reflection'  # 'Normal'
     learning_rate: 1e-4
     Hidden_size: 256
     Num_layers: 3 #2  
@@ -75,16 +76,16 @@ Training:
   Constant_features_Transformer:
     Dataset_status: 'Normal' # 'No_reflection'  # 'Normal'
     learning_rate: 1e-4
-    d_model: 256
+    d_model: 128
     nhead: 8
-    num_layers: 8
-    DropOut: 0.1
-    Stride                : 1 
-    window_Lenght         : 1
+    num_layers: 8 #8
+    DropOut: 0.2
+    Stride                : 1
+    window_Lenght         : 10
     valid_embedding       : [128, 256]
-    valid_window_Lenght   : [1, 10, 100]
+    valid_window_Lenght   : [1, 10]
 
-  num_workers           : 16
+  num_workers           : 24
   GPU_temperature       : 67 # temperature threshold for GPU to wait/puase training
   checkpoint_save_freq  : 10
   hard_negative_mining  : False

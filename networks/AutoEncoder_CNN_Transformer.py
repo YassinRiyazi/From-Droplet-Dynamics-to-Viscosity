@@ -255,6 +255,7 @@ class Encoder_Transformer(nn.Module):
         
         # Alias for compatibility
         self.transformer = self.model
+        self.embed_norm = nn.LayerNorm(proj_dim, elementwise_affine=False, device=self.device)
         
     def _encoder(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -291,11 +292,25 @@ class Encoder_Transformer(nn.Module):
         else:
             embeddings = x  # Assume input is already embeddings
 
+
+        
         
         # Forward through model
         output = self.model(embeddings)
         
         return output
+    
+        # # Extract embeddings
+        # if hasattr(self, 'autoencoder') and self.autoencoder is not None:
+        #     embeddings = self._encoder(x)  # (batch, seq_len, embedding_dim)
+        #     embeddings = torch.cat([embeddings, x_additional], dim=-1)
+        # else:
+        #     embeddings = x  # Assume input is already embeddings
+
+        # # Forward through model
+        # output = self.model(embeddings)
+        
+        # return output
     
     def AttentionWeights(self) -> list[torch.Tensor] | None:
         """

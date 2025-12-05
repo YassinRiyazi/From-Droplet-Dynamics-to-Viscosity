@@ -151,13 +151,13 @@ class data_set:
 
         return train_ds, val_ds
     
-    def reflectionReturn_Setter(self, flag: bool = True) -> Tuple[dataset.MotherFolderDataset, dataset.MotherFolderDataset]:
-        if self.train_dataset is None or self.val_dataset is None:
-            raise RuntimeError("Datasets not loaded")
-        self.train_dataset.reflectionReturn_Setter(flag)
-        self.val_dataset.reflectionReturn_Setter(flag)
-        return self.train_dataset, self.val_dataset
+    # def reflectionReturn_Setter(self, flag: bool = True) -> Tuple[dataset.MotherFolderDataset, dataset.MotherFolderDataset]:
+    #     if self.train_dataset is None or self.val_dataset is None:
+    #         raise RuntimeError("Datasets not loaded")
+    #     self.train_dataset.reflectionReturn_Setter(flag)
+    #     self.val_dataset.reflectionReturn_Setter(flag)
+    #     return self.train_dataset, self.val_dataset
 
-    def ablation(self,) -> None:
-        # TODO: Implement ablation study functionality
-        raise NotImplementedError
+    # def ablation(self,) -> None:
+    #     # TODO: Implement ablation study functionality
+    #     raise NotImplementedError

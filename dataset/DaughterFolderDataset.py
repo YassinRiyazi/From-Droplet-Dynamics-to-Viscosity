@@ -173,7 +173,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
         self.wide               = utils.config['Dataset']['wide']
         self.super_res          = utils.config['Dataset'].get('super_resolution', False)
         self.super_res_factor   = utils.config['Dataset']['embedding'].get('super_resolution_factor', 1)
-        self.reflect_remover    = utils.config['Dataset'].get('reflection_removal', False)
+        self.reflect_remover    = False #utils.config['Dataset'].get('reflection_removal', False)
         self.embed_bool         = utils.config['Dataset']['embedding']['positional_encoding'] != 'False'
         self.embedID            = f"{utils.config['Dataset']['embedding']['positional_encoding']}_PE_height_{utils.config['Dataset']['embedding']['PE_height']}_default_size_"
 
@@ -439,7 +439,7 @@ class DaughterFolderDataset(Dataset[DaughterSet_getitem_]):
             final_parts.append(tilt_col)
 
         if self.feature_selection.use_count:
-            count_col = np.full((_lenght, 1), count, dtype=np.float32) / 5000.0
+            count_col = np.full((_lenght, 1), count, dtype=np.float32) / 7500
             final_parts.append(count_col)
 
         if combined.shape[1] > 0:
