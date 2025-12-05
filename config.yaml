@@ -52,7 +52,9 @@ Training:
   
 
   Constant_feature_AE:
-    Dataset_status: 'No_reflection' # 'No_reflection'  # 'Normal'
+    # Return it to normal
+    additional_flag: False
+    Dataset_status: 'Normal' # 'No_reflection'  # 'Normal'
     Architecture: 'Autoencoder_CNNV1_0'
     Valid_architectures: ['Autoencoder_CNNV1_0', 'Autoencoder_CNNV3_0', 'Autoencoder_TransformerV2_0']
     DropOut: False #True

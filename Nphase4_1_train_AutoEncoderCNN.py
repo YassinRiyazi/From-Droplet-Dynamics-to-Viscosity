@@ -39,7 +39,7 @@ if torch.cuda.is_available():
 if utils.config['Training']['Constant_feature_AE']['Dataset_status'] == 'No_reflection':
     additional_flag = False
 else:
-    additional_flag = True
+    additional_flag = utils.config['Training']['Constant_feature_AE'].get('additional_flag', True)  
 
 def Plateaued_Closed(save_model:Callable[..., None],
               model:torch.nn.Module,
@@ -237,7 +237,7 @@ def trainer(
         additional_flag = False
     else:
         model.DropOut = DropOut
-        additional_flag = True
+        additional_flag = utils.config['Training']['Constant_feature_AE'].get('additional_flag', True)
     
     # Phase 3. DataLoader and Optimizer
     train_loader    = DataLoader(train_dataset, batch_size=utils.config['Training']['batch_size'], 
